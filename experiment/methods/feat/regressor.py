@@ -16,6 +16,19 @@ import pandas as pd
 import numpy as np
 import pickle
 
+# 500,000 evaluations = 250,000 with 1 backprop iteration
+pop_sizes = [100, 500, 1000]
+gs = [2500, 500, 250]
+lrs = [0.1, 0.3]
+hyper_params = []
+for p, g in zip(pop_sizes, gs):
+    for lr in lrs:
+        hyper_params.append({
+            'pop_size':[p],
+            'gens':[g],
+            'lr':[lr]
+        })
+
 
 """
 est: a sklearn-compatible regressor. 
@@ -25,9 +38,9 @@ est: a sklearn-compatible regressor.
 est:RegressorMixin = FeatRegressor(
                     pop_size=100,
                     gens=100,
-                    max_time=8*60*60,  # 8 hrs. Your algorithm should have this feature
+                    max_time=60*60, # 1 hrs. Your algorithm should have this feature
                     max_depth=6,
-                    verbosity=2,
+                    verbosity=0, # Try to keep it quiet
                     batch_size=100,
                     functions=['+','-','*','/','^2','^3','sqrt','sin','cos','exp','log'],
                     otype='f'
@@ -140,6 +153,11 @@ def model(est, X=None) -> str:
 
     return model_str
 
+def complexity(est):
+    if isinstance(est, FeatPopEstimator):
+        est = est.est # It is wrapped
+
+    return est.get_n_nodes() + 2*est.get_n_params() + 2*est.get_dim()
 
 def get_population(est) -> list[RegressorMixin]:
     """
@@ -170,7 +188,6 @@ def get_population(est) -> list[RegressorMixin]:
         # Stopping here to avoid too many models
         if len(pop) >= 100:
             break
-
 
     return pop
 
@@ -217,10 +234,13 @@ Options
             y: training labels.
 """
 
-def my_pre_train_fn(est, X, y):
+def pre_train(est, X, y):
     """In this example we adjust FEAT generations based on the size of X 
-       versus relative to FEAT's batch size setting. 
-    """
+       versus relative to FEAT's batch size setting.
+       
+       Adjust settings based on data before training"""
+    
+    # adjust generations based onsize of X versus batch size
     if est.batch_size < len(X):
         est.gens = int(est.gens*len(X)/est.batch_size)
     print('FEAT gens adjusted to',est.gens)
@@ -230,7 +250,7 @@ def my_pre_train_fn(est, X, y):
 
 # define eval_kwargs.
 eval_kwargs = dict(
-                   pre_train=my_pre_train_fn,
+                   pre_train=pre_train,
                    test_params = {'gens': 5,
                                   'pop_size': 10
                                  }

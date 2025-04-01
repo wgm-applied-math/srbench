@@ -35,7 +35,7 @@ est = ellyn(selection='epsilon_lexicase',
             max_len_init=20,
             popsize=500,
             g=500,
-            time_limit=2*60*60
+            time_limit=60*60
             )
 
 def complexity(est):

@@ -7,12 +7,12 @@ from itertools import product
 hyper_params = [
     {
         'transfunctions' : ('Id,Tanh,Sin,Cos,Log,Exp,Sqrt',),
-        'ytransfunctions' : ('Id,Sqrt,Exp,Log,ATan,Tan,Tanh',),
+        'ytransfunctions' : ('Id,Exp,ATan,Tan,Tanh',),
         'exponents' : ((-5,5),)
     },
     {
         'transfunctions' : ('Id,Tanh,Sin,Cos,Log,Exp,Sqrt',),
-        'ytransfunctions' : ('Id,Sqrt,Exp,Log,ATan,Tan,Tanh',),
+        'ytransfunctions' : ('Id,Exp,ATan,Tan,Tanh',),
         'exponents' : ((-2,2),)
     },
 ]
@@ -29,10 +29,11 @@ def pre_train(est, X, y):
 def complexity(e):
     return e.len
 
-def model(e, X):
+def model(e, X=None):
     new_model = e.sympy.replace("^","**")
-    for i,f in reversed(list(enumerate(X.columns))):
-        new_model = new_model.replace(f'x{i}',f)
+    if X is not None:
+        for i,f in reversed(list(enumerate(X.columns))):
+            new_model = new_model.replace(f'x{i}',f)
     return new_model
 
 def get_population(est):

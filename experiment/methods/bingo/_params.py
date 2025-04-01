@@ -1,0 +1,1 @@
+params = {'population_size': 500, 'stack_size': 24, 'operators': ["+", "-", "*", "/", "sin", "cos", "exp", "log", "sqrt"], 'use_simplification': True, 'crossover_prob': 0.3, 'mutation_prob': 0.45, 'metric': "mse", 'clo_alg': "lm", 'max_time': 60*60, 'max_evals': int(1e19), 'evolutionary_algorithm': "AgeFitnessEA", 'clo_threshold': 1.0e-5}

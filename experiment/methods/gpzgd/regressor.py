@@ -24,7 +24,6 @@ import numpy as np
 import pandas as pd
 
 class GPZGD(BaseEstimator, RegressorMixin):
-
     def __init__(self, pop_size=200, generations=250,
                  tournament_size=3, validation_prop=0.0,
                  crossover_rate=0.3, sub_mutation_rate=0.4, point_mutation_rate=0.3, mutation_sigma=0.1,
@@ -257,7 +256,7 @@ def pre_train_fn(est, X, y):
     else:
         pop_size = 200
         generations = 5000
-        max_time = 35640 ## 99% of ten hours
+        max_time = 3564 # 35640 ## 99% of ten hours
 
     est.tournament_size = 10
     est.pop_size = pop_size

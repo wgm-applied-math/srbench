@@ -32,8 +32,30 @@ est = SymbolicRegressor(
 
 
 def model(est, X=None):
-    return str(est._program)
+    str_rep = ""
+    if isinstance(est, SymbolicRegressor):
+        if not hasattr(est, '_program'):
+            return est.__repr__()
+        str_rep = est._program.__str__()
+    else:
+        str_rep = str(est)
+    
+    if X is not None:
+        for i,f in reversed(list(enumerate(X.columns))):
+            str_rep = str_rep.replace(f'X{i}', f )
+
+    # Capitalizing math operations so simpy recognizes it
+    for f in ['add', 'sub', 'mul', 'div', 'log', 'sqrt', 'sin','cos']:
+        str_rep = str_rep.replace(f, f.title())
+
+    return str_rep
 
 def complexity(est):
     #TODO: check
     return len(re.split('\(|,',model(est)))
+
+def get_population(est):
+    cut = len(est._programs[-1])
+    if cut>100:
+        cut = 100
+    return est._programs[-1][:cut]

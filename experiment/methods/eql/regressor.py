@@ -6,20 +6,28 @@ from sklearn.model_selection import GridSearchCV
 
 base = EQL(n_iter=10_000)
 
-hp = {
-    "reg": (1e-4, 1e-3, 1e-2, 5e-2),
-    "n_layers": (1, 2),
-    "functions": (
-        "id;mul;cos;sin;exp;square;sqrt;id;mul;cos;sin;exp;square;sqrt;log",
-        "id;mul;cos;div;sqrt;cos;sin;div;mul;mul;cos;id;log",
-    ),
-}
+reg = (1e-4, 1e-3, 1e-2, 5e-2)
+n_layers = (1, 2)
+functions = (
+    "id;mul;cos;sin;exp;square;sqrt;id;mul;cos;sin;exp;square;sqrt;log",
+    "id;mul;cos;div;sqrt;cos;sin;div;mul;mul;cos;id;log",
+)
 
-est = GridSearchCV(estimator=base, param_grid=hp, cv=2, refit=True, n_jobs=4)
+hyper_params = []
 
+for r, l in zip(reg, n_layers):
+    for f in functions:
+        hyper_params.append({
+                'reg':[r],
+                'n_layers':[l],
+                'functions':[f]
+                })
+        
+# est = GridSearchCV(estimator=base, param_grid=hyper_params, cv=2, refit=True, n_jobs=4, verbose=0)
+est = base
 
 def model(est, X=None):
-    model_str = str(est.best_estimator_.get_eqn())
+    model_str = str(est.get_eqn())
 
     if isinstance(X, pd.DataFrame):
         for i,f in reversed(list(enumerate(X.columns))):
@@ -29,6 +37,6 @@ def model(est, X=None):
 
 
 eval_kwargs = {
-    'test_params': {'param_grid': {'n_iter': [10], **hp}},
+    'test_params': {'param_grid': {'n_iter': [10], **hyper_params[-1]}},
     'use_dataframe':False
 }

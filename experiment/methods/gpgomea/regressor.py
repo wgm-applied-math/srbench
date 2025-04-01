@@ -3,8 +3,24 @@ from sklearn.base import RegressorMixin
 from pymgpg.sk import MGPGRegressor
 
 
+pop     = [1024, 2048, 4096]
+nr_multi_trees  = [2, 4, 8]
+MO_mode = [False, True]
+
+hyper_params = []
+
+# The estimator is generating a segfault when using gridsearch. Skipping
+# for pop, nr in zip(pop, nr_multi_trees):
+#     for mode in MO_mode:
+#         hyper_params.append({
+#             'pop'            : [pop],
+#             'nr_multi_trees' : [nr],
+#             'MO_mode'        : [mode]
+#         })
+
+
 est: RegressorMixin = MGPGRegressor(
-    verbose=False,
+    verbose=True,
     log=False,
     MO_mode=False,
     n_clusters=1,
@@ -68,6 +84,10 @@ def model(est: MGPGRegressor, X=None) -> str:
     """
 
     return str(est.model)
+
+
+# def complexity(est):
+#     return 0
 
 
 def get_population(est: MGPGRegressor) -> list[RegressorMixin]:

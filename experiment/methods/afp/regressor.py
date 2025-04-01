@@ -11,6 +11,8 @@ op_lists=[
 
 hyper_params = []
 
+# We should tune budget-related stuff (e.g. popsize and generations) only if
+# there is a time limit setting
 for p, g in zip(pop_sizes, gs):
     for op_list in op_lists:
         hyper_params.append({
@@ -27,7 +29,7 @@ est = ellyn(selection='afp',
             islands=False,
             num_islands=10,
             island_gens=100,
-            verbosity=1,
+            verbosity=0, # Try to keep it quiet
             print_data=False,
             elitism=True,
             pHC_on=True,
@@ -36,7 +38,7 @@ est = ellyn(selection='afp',
             max_len_init=20,
             popsize=1000,
             g = 250,
-            time_limit=2*60*60
+            time_limit=60*60 # 1 hour
             )
 
 def complexity(est):

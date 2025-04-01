@@ -3,7 +3,7 @@ from multiprocessing import cpu_count
 
 
 def complexity(est):
-    return est.get_best()["complexity"]
+    return int(est.get_best()["complexity"])
 
 
 def model(est, X=None):
@@ -14,10 +14,11 @@ est = PySRRegressor(
     niterations=1_000_000_000,
     ncyclesperiteration=2_500,
     population_size=100,
-    populations=max(15, cpu_count()*2),
+    populations=2,
+    verbosity=0,
     # budget 10 minutes for compile time,
     # ensuring we can finish within 2 hours:
-    timeout_in_seconds=2*60*60 - 10*60,
+    timeout_in_seconds=60*60 - 10*60,
     maxsize=30,
     maxdepth=20,
     binary_operators=["+", "-", "*", "/"],
@@ -51,7 +52,7 @@ est = PySRRegressor(
         )
     ),
     # prefer multiprocessing:
-    procs=cpu_count(),
+    procs=1, # cpu_count(),
     multithreading=False,
     batching=True,
     batch_size=50,
