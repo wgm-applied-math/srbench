@@ -52,8 +52,13 @@ def round_floats(ex1):
 
 def get_symbolic_model(pred_model, local_dict):
     # TODO: update namespace for exact_formula runs
-    sp_model = sp.parse_expr(pred_model, local_dict=local_dict)
-    sp_model = round_floats(sp_model)
+    sp_model=""
+    try:
+        sp_model = sp.parse_expr(pred_model, local_dict=local_dict)
+        sp_model = round_floats(sp_model)
+    except Exception as e:
+        print('Warning: parse expr failed. Msg:',e)
+        pass
 
     signal.signal(signal.SIGALRM, alarm_handler)
     signal.alarm(MAXTIME) # maximum time, defined above
@@ -63,6 +68,7 @@ def get_symbolic_model(pred_model, local_dict):
         print('Warning: simplify failed. Msg:',e)
         pass
     return sp_model
+
 
 def simplicity(pred_model, feature_names):
     local_dict = {f:sp.Symbol(f) for f in feature_names} 
