@@ -2,10 +2,14 @@ import sys
 import itertools
 import pandas as pd
 from sklearn.base import clone
+from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.preprocessing import StandardScaler
+from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score  
 from sklearn.model_selection import train_test_split
+from sklearn.utils.estimator_checks import check_estimator
 import warnings
+from joblib import parallel_backend
 import time
 from tempfile import mkdtemp
 from shutil import rmtree
@@ -16,7 +20,6 @@ import numpy as np
 import json
 import re
 import os
-import eco2ai
 
 import sympy as sp
 import inspect
@@ -39,6 +42,105 @@ def set_env_vars(n_jobs):
     os.environ['OPENBLAS_NUM_THREADS'] = n_jobs 
     os.environ['MKL_NUM_THREADS'] = n_jobs
 
+class WrapEstimator(BaseEstimator, RegressorMixin):
+    def __init__(self, base_estimator, pre_train=None, max_time=None, base_estimator_kwargs=None):
+        print("Initializing")
+        self.base_estimator = base_estimator
+        self.pre_train = pre_train
+        self.max_time = max_time
+        self.base_estimator_kwargs = base_estimator_kwargs
+        print(f"Initial parameters: {base_estimator.get_params(deep=True)}")
+        print(f"base_estimator_kwargs parameters: {base_estimator_kwargs}")
+
+    def fit(self, X, y):
+        # Create new variable with trailing underscore
+        self.base_estimator_ = clone(self.base_estimator)
+
+        if hasattr(self.base_estimator, 'random_state'):
+            self.base_estimator_.random_state = self.base_estimator.random_state
+            
+        # Set the parameters
+        print("Checking if we should update base estimator...")
+        if self.base_estimator_kwargs is not None: # empty dictionaries evaluate to false
+            print("Setting parameters inside fit")
+            self.base_estimator_ = self.base_estimator.set_params(**self.base_estimator_kwargs)
+
+        print("Starting fit process")
+        print(f"Dataset shapes: X={X.shape}, y={y.shape}")
+        print("Current parameters:")
+        print(str(self.base_estimator_.get_params(deep=True)))
+
+        signal.signal(signal.SIGALRM, alarm_handler)
+
+        # ---------- SIGALRM ACTIVATION ----------
+        # uncomment so it get's the sigalrm --- ideally the estimator should have a max_time and also
+        # a method for handling the signal gracefully. If not sure, comment the line and just hope that 
+        # the fitting wont take too long
+        # signal.alarm(self.max_time + 600) # maximum time with some extra juice for finishing up
+
+        if self.pre_train:
+            self.pre_train(self.base_estimator_, X, y)
+
+        t0t = time.time()
+        try:
+            self.base_estimator_.fit(X, y)
+            
+            print("Fitting completed successfully")
+            print("Final parameters:")
+            print(str(self.base_estimator_.get_params(deep=True)))
+            
+            # Calculate training score
+            pred = self.base_estimator_.predict(X)
+            train_score = r2_score(y, pred)
+            print(f"Training R2 score: {train_score:.4f}")
+        except TimeoutError:
+            print('WARNING: fitting timed out')
+        finally:
+            signal.alarm(0)  # Cancel the alarm
+        # -------------------------------------------------
+
+        # creating a parameter_ so sklearn understands that the model was fitted
+        self.fitting_time_ = time.time() - t0t
+        
+        return self
+
+    def predict(self, X):
+        return self.base_estimator_.predict(X)
+
+    def score(self, X, y):
+        # GridSearchCV always assumes that it needs to optimize the function to 
+        # its maximum. We set the score function here so all methods are optimized
+        # against the same metric.
+        pred = self.base_estimator_.predict(X)
+
+        return r2_score(y, pred)
+    
+    def get_params(self, deep=True):
+        params = {
+            "base_estimator" : self.base_estimator,
+            "pre_train" : self.pre_train,
+            "max_time" : self.max_time,
+            "base_estimator_kwargs" : self.base_estimator_kwargs
+        }
+        print(f"get_params Returning parameters: {str(params)}")
+        return params
+
+    def set_params(self, **params):
+        print(f"set_params using parameters: {str(params)}")
+        valid_params = self.get_params(deep=True)
+
+        for key, value in params.items():
+            if key not in valid_params:
+                raise ValueError(
+                    f"Invalid parameter {key} for estimator {self}. "
+                    f"Valid parameters are: {valid_params.keys()}."
+                )
+            else:
+                setattr(self, key, value)
+
+        print(f"set_params updated to parameters: {str(self.get_params())}")
+        return self
+
 def evaluate_model(
     dataset, 
     results_path,
@@ -46,10 +148,8 @@ def evaluate_model(
     est_name,
     est,
     model,
-    ecotracker=False,
     test=False,
     sym_data=False,
-    save_pop=False,
     target_noise=0.0, 
     feature_noise=0.0, 
     ##########
@@ -69,6 +169,19 @@ def evaluate_model(
     if hasattr(est, 'random_state'):
         est.random_state = random_state
 
+    dataset_name = dataset.split('/')[-1].split('.')[0]
+    save_file = os.path.join(
+        results_path,
+        '_'.join([dataset_name, "tuned"+est_name, str(random_state)])
+    )
+
+    if args.Y_NOISE > 0:
+        save_file += '_target-noise'+str(args.Y_NOISE)
+    if args.X_NOISE > 0:
+        save_file += '_feature-noise'+str(args.X_NOISE)
+        
+    print('save_file:',save_file)
+
     ##################################################
     # setup data
     ##################################################
@@ -79,12 +192,12 @@ def evaluate_model(
     ##################################################
     # setup data
     ##################################################
-    features, labels, feature_names = read_file(
+    features, labels, feature_names =  read_file(
         dataset, 
         use_dataframe=use_dataframe
     )
     print('feature_names:',feature_names)
-    
+
     if sym_data:
         true_model = get_sym_model(dataset)
 
@@ -148,45 +261,27 @@ def evaluate_model(
     ################################################## 
     # run any method-specific pre_train routines
     ################################################## 
-    if pre_train:
-        pre_train(est, X_train_scaled, y_train_scaled)
-
+    if 'hyper_params' not in dir(algorithm) and not test:
+        algorithm.hyper_params = []
+    print('hyperparams:',algorithm.hyper_params)
+    
     # define a test mode using estimator test_params, if they exist
     if test and len(test_params) != 0:
         est.set_params(**test_params)
 
-    if args.TUNED:
-        try:
-            tuned = importlib.__import__('methods.'+args.ALG+'._params',
-                                        globals(), locals(), ['*'] )
-            est.set_params(**tuned.params)
-        except Exception as e:
-            print(f"Tried to use tuned version of algorithm {est_name}, "+
-                   "but no hyperparameter tuning step was performed on this "+
-                   "algorithm yet. run optimize_model first.")
-        est_name = 'tuned'+est_name
-
-    ################################################## 
-    # Fit models
-    ################################################## 
+    est_name = 'tuned'+est_name
     id = '_'.join([dataset.split('/')[-1].split('.')[0],
                       est_name,
                       str(random_state),
                       ])
-
+    
+    ################################################## 
+    # Fit models
+    ################################################## 
     if args.Y_NOISE > 0:
         id += '_target-noise'+str(args.Y_NOISE)
     if args.X_NOISE > 0:
         id += '_feature-noise'+str(args.X_NOISE)
-
-    if ecotracker:
-        # file name should be something that will avoid parallel writing
-        tracker = eco2ai.Tracker(
-            project_name=dataset.split('/')[-1].split('.')[0], # dataset
-            experiment_description=f'{est_name} {random_state}', # ml method and random seed
-            file_name=os.path.join(results_path,id+"_eco2ai.csv"),
-            alpha_2_code='US'
-        )
 
     if not use_dataframe: 
         assert isinstance(X_train_scaled, np.ndarray)
@@ -196,58 +291,85 @@ def evaluate_model(
     print('y_train:',y_train_scaled.shape)
     print('training',est)
     
-    # time limits
-    MAXTIME = args.FITTIME
-    if hasattr(est, 'max_time'):
-        est.max_time = MAXTIME
-        print('max time set:',MAXTIME)
-    elif hasattr(est, 'timeout_in_seconds'): # pysr
-        est.timeout_in_seconds = MAXTIME
-        print('max time set:',MAXTIME)
-    elif hasattr(est, 'timeout'): # gpzgd
-        est.timeout = MAXTIME
-        print('max time set:',MAXTIME)
-    elif hasattr(est, 'stop_time'): # nesymres
-        est.stop_time = MAXTIME
-        print('max time set:',MAXTIME)
-    elif hasattr(est, 'time_limit'): # afp, afp_fe, afp_ehc, eplex
-        est.time_limit = MAXTIME
-        print('max time set:',MAXTIME)
-    else:
-        print('max time not set. Program will be killed if execution takes too long')
+    hyper_params_wrapper = []
+    for i, hp in enumerate(algorithm.hyper_params):
+        # time limits
+        if hasattr(est, 'max_time'):
+            hp['max_time'] = [args.FITTIME]
+        elif hasattr(est, 'timeout_in_seconds'): # pysr
+            hp['timeout_in_seconds'] = [args.FITTIME]
+        elif hasattr(est, 'timeout'): # gpzgd
+            hp['timeout'] = [args.FITTIME]
+        elif hasattr(est, 'stop_time'): # nesymres
+            hp['stop_time'] = [args.FITTIME]
+        elif hasattr(est, 'time_limit'): # afp, afp_fe, afp_ehc, eplex
+            hp['time_limit'] = [args.FITTIME]
 
-    if ecotracker:
-        tracker.start()
-    t0t = time.time()
-    signal.signal(signal.SIGALRM, alarm_handler)
-    signal.alarm(MAXTIME + 600) # maximum time with some extra juice for finishing up
-    try:
+        if hasattr(est, 'random_state'):
+            # Different random states for the runs so we dont get the same results
+            # during the cross-validation, but we still need to be able to track it
+            hp['random_state'] = [random_state] # [random_state*(i+1)]
+
+        # We have to strip out the list in base estimator kwargs
+        hyper_params_wrapper.append({
+            # 'base_estimator' : [clone(est)],
+            'pre_train' : [(pre_train if pre_train else None)],
+            'max_time' : [args.FITTIME],
+            'base_estimator_kwargs' : [{k : v[0] for (k, v) in hp.items()}]
+        })
+
+    print('wrapper hyperparams:', hyper_params_wrapper)
+
+    if len(algorithm.hyper_params)>1: # we need at least two hp configurations to do cv
+        print('Starting to tune...')
+        wrap_estimator = WrapEstimator(base_estimator=est)
+        
+        # Making sure everything is correct
+        # print(check_estimator(wrap_estimator))
+
+        grid_search = GridSearchCV(
+            estimator=wrap_estimator,
+            param_grid=hyper_params_wrapper,
+            refit=False, # refit final model with best params, creating best_estimator_
+            pre_dispatch=1,
+            n_jobs=1,
+            verbose=1,
+            cv=3
+        )
+        t0t = time.time()
+        with parallel_backend('sequential', n_jobs=1):
+            grid_search.fit(X_train_scaled, y_train_scaled)
+        print('Tuning time measure:', time.time() - t0t)
+        
+        pd.DataFrame(grid_search.cv_results_).to_csv(
+            f'{save_file}_cv_log.csv', index=False)
+
+        # Extracting the nested structure and fitting the final model with entire training partition
+        est.set_params(**grid_search.best_params_['base_estimator_kwargs'])
         est.fit(X_train_scaled, y_train_scaled)
-    except TimeOutException:
-        print("="*80)
-        print('WARNING: fitting timed out. If the program does not handle SIGALRM, then it will be killed')
-        print("="*80)
-    finally:
-        signal.alarm(0)  # Cancel the alarm
-    time_time = time.time() - t0t
-    if ecotracker:
-        tracker.stop()
-    print('Training time measure:', time_time)
+    else:
+        t0t = time.time()
+        est.fit(X_train_scaled, y_train_scaled)
+        print('single fit time measure:', time.time() - t0t)
 
+    time_time = time.time() - t0t
+    
     if 'geneticengine' in est_name:
         est._is_fitted = True
 
     ##################################################
     # store results
     ##################################################
-    dataset_name = dataset.split('/')[-1].split('.')[0]
+    params = est.get_params(False)
+
     results = {
         'dataset':dataset_name,
         'algorithm':est_name,
-        'params':jsonify(est.get_params()),
+        'params':jsonify(params),
         'random_state':random_state,
         'time_time': time_time, 
     }
+
     if sym_data:
         results['true_model'] = true_model
 
@@ -285,12 +407,12 @@ def evaluate_model(
                               ('r2', r2_score)
                              ]:
             results[score + '_' + fold] = scorer(target, y_pred) 
-    
+
     # simplicity
     if results['symbolic_model'] != "not implemented":
         results['simplicity'] = simplicity(results['symbolic_model'], feature_names)
     else:
-        results['simplicity'] = np.nan
+        results['simplicity'] = None
 
     def sympy_complexity(est):
         sympy_str = None
@@ -323,49 +445,9 @@ def evaluate_model(
     # Forcing all algorithms to use same notion of complexity
     algorithm.complexity = sympy_complexity
 
-    results['model_size'] = algorithm.complexity(est)
+    results['model_size'] = int(algorithm.complexity(est))
     results['target_noise']  = args.Y_NOISE
     results['feature_noise'] = args.X_NOISE
-
-    ##################################################
-    # Population analysis
-    ##################################################
-    if 'get_population' in dir(algorithm) and save_pop:
-        population = algorithm.get_population(algorithm.est)
-        population = population[:np.minimum(100, len(population))]
-
-        frames = []
-        for i, p in enumerate(population):
-            frame = {
-                'dataset': dataset_name,
-                'algorithm': est_name,
-                'random_state':random_state,
-                "index" : i,
-                "model_str" : algorithm.model(p),
-                "model_size" : algorithm.complexity(p)
-            }
-            for fold, target, X in  [ 
-                ['train', y_train, X_train_scaled], 
-                ['test', y_test, X_test_scaled]
-            ]:
-                y_pred = None
-                if 'gplearn'== est_name:
-                    y_pred = np.asarray(p.execute(X.values)).reshape(-1,1)
-                else:
-                    y_pred = np.asarray(p.predict(X)).reshape(-1,1)
-                
-                if scale_y:
-                    y_pred = sc_y.inverse_transform(y_pred)
-
-                for score, scorer in [('mse',mean_squared_error),
-                    ('mae',mean_absolute_error),
-                    ('r2', r2_score)
-                ]:
-                    frame[f'{score}_{fold}'] = scorer(target, y_pred) 
-            frames.append(frame)
-
-        pd.DataFrame.from_records(frames).to_csv(
-            os.path.join(results_path,id+"_population.csv"), index=False)
 
     ##################################################
     # write to file
@@ -377,19 +459,7 @@ def evaluate_model(
     if not os.path.exists(results_path):
         os.makedirs(results_path)
 
-    save_file = os.path.join(
-        results_path,
-        '_'.join([dataset_name, est_name, str(random_state)])
-    )
-
-    if args.Y_NOISE > 0:
-        save_file += '_target-noise'+str(args.Y_NOISE)
-    if args.X_NOISE > 0:
-        save_file += '_feature-noise'+str(args.X_NOISE)
-        
-    print('save_file:',save_file)
-
-    with open(save_file + '.json', 'w') as out:
+    with open(save_file + '_cv_results.json', 'w') as out:
         json.dump(jsonify(results), out, indent=4)
 
     return save_file + '.json'
@@ -401,7 +471,6 @@ import argparse
 import importlib
 
 if __name__ == '__main__':
-
     # parse command line arguments
     parser = argparse.ArgumentParser(
         description="Evaluate a method on a dataset.", add_help=False)
@@ -431,9 +500,7 @@ if __name__ == '__main__':
                         'to the target')
     parser.add_argument('-fit_time_limit',action='store',dest='FITTIME',default=3600,
             type=int, help='Fit time limit (seconds) e.g. 3600 (1 hour). This is the maximum time for the fit method, not the job, make sure job time lim is greater than this.')
-    parser.add_argument('--sym_data', action='store_true', dest='SYM_DATA', default=False)
-    parser.add_argument('--save_population', action='store_true', dest='SAVE_POP', default=False)
-    parser.add_argument('--ecotracker', action='store_true', dest='ECOTRACKER', default=False)
+    parser.add_argument('--sym_data', action='store_false', dest='SYM_DATA', default=False)
     parser.add_argument('--scale_x', action='store_true', dest='SCALE_X', default=False) 
     parser.add_argument('--scale_y', action='store_true', dest='SCALE_Y', default=False)
     parser.add_argument('--skip_tuning',action='store_true', dest='SKIP_TUNE', 
@@ -443,6 +510,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     set_env_vars(args.n_jobs)
+
     # import algorithm 
     print('import from','methods.'+args.ALG+'.regressor')
     algorithm = importlib.__import__('methods.'+args.ALG+'.regressor',
@@ -462,7 +530,6 @@ if __name__ == '__main__':
         eval_kwargs['max_train_samples'] = args.max_samples
 
     eval_kwargs['sym_data'] = args.SYM_DATA
-    eval_kwargs['save_pop'] = args.SAVE_POP
     eval_kwargs['scale_x'] = args.SCALE_X
     eval_kwargs['scale_y'] = args.SCALE_Y
 
@@ -473,6 +540,5 @@ if __name__ == '__main__':
                    algorithm.est,  
                    algorithm.model, 
                    test = args.TEST, 
-                   ecotracker=args.ECOTRACKER,
                    **eval_kwargs
                   )
