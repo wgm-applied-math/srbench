@@ -93,6 +93,9 @@ def test_evaluate(ml):
 @pytest.mark.order(after="test_evaluate")
 def test_sympy(ml):
     """Sympy compatibility of model string"""
+    
+    algorithm = get_algorithm(ml)
+
     dataset_name = dataset.split('/')[-1][:-7]
     json_file = (results_path + '/' + dataset_name + '_' + ml + '_' 
                  + str(random_state) + '.json')
@@ -111,6 +114,9 @@ def test_sympy(ml):
     model_sym = parse_expr(raw_model, local_dict = local_dict)
     model_sym = round_floats(model_sym)
     print('sym model:',model_sym)
+
+    assert 'complexity' in dir(algorithm), \
+        f"{ml} does not implement complexity"
 
     model_complexity = complexity(model_sym)
     print('model complexity:',model_complexity)

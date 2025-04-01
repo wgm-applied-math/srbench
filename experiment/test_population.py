@@ -72,6 +72,7 @@ def test_population(ml):
     best_model = algorithm.get_best_solution(algorithm.est)
     print('Best model')
     print(algorithm.model(best_model, X_train))
+    print(algorithm.complexity(best_model, X_train))
     print(algorithm.est.predict(X_train.values))
 
     ##################################################
@@ -90,4 +91,5 @@ def test_population(ml):
     for i, p in enumerate(population):
         print(f"Individual {i}")
         print(algorithm.model(p, X_train))
+        print(algorithm.complexity(p, X_train))
         print(p.predict(X_train.values))
