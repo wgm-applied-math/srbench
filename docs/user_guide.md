@@ -41,7 +41,8 @@ git lfs pull
 
 ### Docker install
 
-For Docker users,
+For Docker users, you can pull the images with
+
 ```bash
 docker build --pull --rm -f "Dockerfile" -t srbench:latest "."
 ```
@@ -118,15 +119,36 @@ done
 
 **Output**: next to each `.json` file, an additional file named `.json.updated` is saved with the symbolic assessment included. 
 
-### For docker users
+### Building docker locally
 
 When a new algorithm is submitted to SRBench, a GitHub workflow will generate a docker image and push it to [Docker Hub](hub.docker.com). Ths means that you can also easily pull the images, without having to deal with local installations.
 
-To use docker, you first run `bash scripts/make_docker_compose_file.sh` in the root directory. Then `docker compose up` should create the images.
+To build the docker images locally, first run `bash scripts/make_docker_compose_file.sh` in the root directory. Then `docker compose up` should create the images, and `docker compose build` will build them.
+To build the image of a specific algorithm you can call build with the name of the service (_e.g._ to build only feat you can do `docker compose build feat`). 
 
 You can now submit arbitrary python commands to the image, _e.g._ `docker compose run feat bash test.sh`
 
-Or you can enter bash mode using an image with `docker compose run feat bash`
+Or you can enter bash mode using an image with `docker compose run feat bash`.
+
+### Pushing to dockerhub on different account
+
+If you make changes to the images and want to upload, first you create a docker account.
+
+Then, change `scripts/make_docker_compose_file.sh` and to use your docker hub ID. Also change the id in the base dockerfiles (`argDockerfile` and `alg-Dockerfile`). 
+
+Now you can run `bash scripts/make_docker_compose_file.sh`, then `docker compose build`. 
+
+On the website, create a repository with the name of the service you want to push (that is, the name of the algorithm, _e.g._ `feat`) Login in the with `docker login`, and run `docker push docker_hub_id/alg_name:latest`, where `latest` is the tag.
+
+### Using singularity
+
+To use singularity (_i.e._ you need to move your images to a cluster) you may need to push to dockerhub first.
+
+Create a folder for the `.sif` files.
+
+Pull the image with `singularity pull folder/name.sif docker://user_id/image`. It will convert the docker container into something singularity can use.
+
+**OBS:** the scripts are designed to run on a cluster using singularity.
 
 ### Post-processing
 
