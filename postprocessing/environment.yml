@@ -1,0 +1,24 @@
+name: srbench-postprocessing
+channels:
+  - conda-forge
+dependencies:
+  - python
+  - scikit-learn 
+  - pandas=1.5.1
+  - numpy
+  - jupyter
+  - pytest
+  - matplotlib
+  - sympy
+  - ipdb
+  - seaborn
+  - pyyaml
+  - pip 
+  - pip:
+    - pmlb==1.0.1.post3
+    - pytest-order
+    - tqdm
+    - pyarrow
+    - pymoo
+    - orange3==3.30 # version that includes Critical difference plots
+    - python-tabulate
