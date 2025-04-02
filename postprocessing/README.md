@@ -12,35 +12,35 @@ We analyze two types of problems:
 
 **Black-box Regression Problems**: problems for which the ground-truth model is not known/ not sought. 
 Includes a mix of real-world and synthetic datasets from [PMLB](https://epistasislab.github.io/pmlb'). 
-122 total. 
+12 total. 
 
-**Ground-truth Regression Problems**: problems for which the ground-truth model known. 
-Includes datasets from the [Feynman Symbolic Regression Database](https://space.mit.edu/home/tegmark/aifeynman.html) and dynamical systems from the [ODE-Strogatz Database](https://lacava.github.io/ode-strogatz/). 
-130 total. 
+**First-principles Problems**: problems for which the ground-truth model is known and derived by first-principles analysis. 
+Includes real-world and synthetic datasets from the [Multiview SR paper repository](https://github.com/erusseil/MvSR-analysis) and the [PySR paper repository](https://github.com/MilesCranmer/PySR). 
+12 total. 
 
 
 # Results for Black-box Regression
 
-![bb_overall](figs/black-box/pairgrid-pointplot_r2_test_model_size_training-time-(s).png)
+## Performance plots
 
-## Accuracy-Complexity Trade-offs
+We adopt _performance profile plots_ that describes the empirical distribution of the obtained results.
+This plot illustrates the probability of achieving a performance greater than or equal to a given $R^2$ threshold for all possible thresholds.
+In this plot, the $x$-axis represents a threshold value of the $R^2$ and the $y$-axis the percentage of runs that a particular algorithm obtained that value or higher.
+This plot can give a broader view of the likelihood of successfully achieving a high accuracy for each algorithm, while keeping all the information for each algorithm in the same plot. 
+![bb_perfplots](figs/black-box-tuning/r2_perf_intervals.png)
 
-Considering the accuracy and simplicity of models simultaneously, this figure illustrates the trade-offs made by each method. 
-Methods lower and to the left produce models with better trade-offs between accuracy and simplicity. 
+## Performance-Complexity Trade-offs
 
-![pareto_rankings](figs/black-box/pareto_plot_r2_test_rank_model_size_rank.png)
+The area under the curve (AUC) of the performance of an algorithm is a reasonable aggregation measure such that a value of $1.0$ means that all $30$ runs achieved maximum accuracy and an area of $0.0$ means it failed to find something above a baseline. 
+
+We consider the trade-off between AUC and sizes of models simultaneously, this figure illustrates the trade-offs made by each method. 
+Methods with small squares and bluish colors produce models with better trade-offs between performance and simplicity. 
+
+![pareto_rankings](figs/black-box-tuning/r2_AUC_tuning_with_sizes.png)
 
 # Results for Ground-truth Problems
 
-## Symbolically-verfied Solutions
+How the best final solution of a method is symbolically equivalent to the ground-truth process.
 
-How often a method finds a model symbolically equivalent to the ground-truth process
-
-![solution_rates](figs/ground-truth/cat-pointplot-Symbolic-Solution-Rate-(pct)-by-Algorithm_Data-Group.png)
-
-## Accuracy Solutions
-
-How often a method finds a model with test set R2>0.999
-
-![accuracy_solution_rates](figs/ground-truth/cat-pointplot-Accuracy-Solution-by-Algorithm_Data-Group.png)
+![accuracy_solution_rates](figs/first-principles-tuning/pareto_facets_r2_zero_test_model_size.png)
 
