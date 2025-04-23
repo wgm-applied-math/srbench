@@ -21,31 +21,22 @@ conda config --set solver libmamba
 1. Install the conda environment:
 
 ```bash
-conda env create -f environment.yml
-conda activate srbench
+conda env create -n srbench-base -f base_environment.yml
+conda activate srbench-base
 ```
 
-2. Install the benchmark algorithms:
+2. Pull the benchmark algorithm images with
 
 ```bash
-bash install.sh
+docker build --pull --rm -f "Dockerfile" -t srbench:latest "."
 ```
 
 3. Download the PMLB datasets:
 
 ```bash
-git clone https://github.com/EpistasisLab/pmlb/ [/path/to/pmlb/]
-cd /path/to/pmlb
-git lfs pull
-```
-
-### Docker install
-
-For Docker users, you can pull the images with
-
-```bash
-docker build --pull --rm -f "Dockerfile" -t srbench:latest "."
-```
+cd datasets
+python download_data.py
+``` 
 
 ## Reproducing the benchmark results
 
@@ -59,65 +50,84 @@ To see the full set of options, run `python analyze.py -h`.
 Use accordingly. 
 
 ### Black-box experiment
+
 After installing and configuring the conda environment, the complete black-box experiment can be started via the command:
 
 ```bash
-python analyze.py /path/to/pmlb/datasets -n_trials 10 -results ../results_blackbox -time_limit 48:00
-```
+################################################################################
+# 1. Black-box experiments - with gridsearch for each dataset-run
+################################################################################
 
-### Ground-truth experiment
-
-**Train the models**: we train the models subject to varying levels of noise using the options below. 
-
-```bash
 # submit the ground-truth dataset experiment. 
+cpu_ml="afp,afp_fe,afp_ehc,bingo,brush,bsr,eplex,eql,feat,ffx,geneticengine,gpgomea,gplearn,gpzgd,itea,operon,ps-tree,pysr,qlattice,rils-rols,tir"
 
-for data in "/path/to/pmlb/datasets/strogatz_" "/path/to/pmlb/datasets/feynman_" ; do # feynman and strogatz datasets
-    for TN in 0 0.001 0.01 0.1; do # noise levels
-        python analyze.py \
-            $data"*" \ #data folder
-            -results ../results_sym_data \ # where the results will be saved
-            -target_noise $TN \ # level of noise to add
-            -sym_data \ # for datasets with symbolic models
-            -n_trials 10 \
-            -m 16384 \ # memory limit in MB
-            -time_limit 9:00 \ # time limit in hrs
-            -job_limit 100000 \ # this will restrict how many jobs actually get submitted.
-            -tuned # use the tuned version of the estimators, rather than performing hyperparameter tuning.
-        if [ $? -gt 0 ] ; then
-            break
-        fi
-    done
-done
+# pretrained models or checkpoints for NN based methods.
+gpu_ml="e2et,nesymres,tpsr,udsr"
+
+# This will submig the jobs
+python experiment/analyze.py datasets/blackbox/ \
+    -script optimize_model \
+    -results results_blackbox_tuning/ \
+    -images /path-to-your-images/ \
+    -pretrained_dir /path-to-pretrained-model-checkpoints/ \
+    -n_trials 30 -job_time_limit 8:00 -fit_time_limit 3600 \
+    -m 3000 -max_samples 40000 \
+    --scale_x --scale_y --slurm --ecotracker \
+    -ml $cpu_ml
+
+python experiment/analyze.py datasets/blackbox/ \
+    -script optimize_model \
+    -results results_blackbox_tuning/ \
+    -images /path-to-your-images/ \
+    -pretrained_dir /path-to-pretrained-model-checkpoints/ \
+    -n_trials 30 -job_time_limit 8:00 -fit_time_limit 3600 \
+    -m 8000 -max_samples 40000 \
+    --scale_x --scale_y --slurm --ecotracker \
+    -ml $gpu_ml
 ```
 
-**Symbolic Assessment**: Following model training, the trained models are assessed for symbolic equivalence with the ground-truth data-generating processes. 
-This is handled in [assess_symbolic_model.py](experiment/assess_symbolic_model.py). 
-Use `analyze.py` to generate batch calls to this function as follows:
+After running the experiments, you can glue them with:
 
 ```bash
-# assess the ground-truth models that were produced using sympy
-for data in "/path/to/pmlb/datasets/strogatz_" "/path/to/pmlb/datasets/feynman_" ; do # feynman and strogatz datasets
-    for TN in 0 0.001 0.01 0.1; do # noise levels
-        python analyze.py \
-            -script assess_symbolic_model \
-            $data"*" \ #data folder
-            -results ../results_sym_data \ # where the results will be saved
-            -target_noise $TN \ # level of noise to add
-            -sym_data \ # for datasets with symbolic models
-            -n_trials 10 \
-            -m 8192 \ # memory limit in MB
-            -time_limit 1:00 \ # time limit in hrs
-            -job_limit 100000 \ # this will restrict how many jobs actually get submitted.
-            -tuned # use the tuned version of the estimators, rather than performing hyperparameter tuning.
-        if [ $? -gt 0 ] ; then
-            break
-        fi
-    done
-done
+# Glue black-box results with 
+python postprocessing/scripts/collate_experiments_results.py './results_blackbox_tuning/' './results/black-box-tuning/'
+
+# Glue eco2ai with
+python postprocessing/scripts/collate_blackbox_eco2ai_stats.py './results_blackbox_tuning/' './results/black-box-tuning/'
 ```
 
-**Output**: next to each `.json` file, an additional file named `.json.updated` is saved with the symbolic assessment included. 
+### First-principles experiment
+
+```bash
+################################################################################
+# 3. first principles experiments
+################################################################################
+# Same procedure as ground-truth experiments, but with no noise addition.
+
+python experiment/analyze.py datasets/firstprinciples \
+    -script optimize_model \
+    -results results_first_principles_tuning/ \
+    -images /path-to-your-images/ \
+    -pretrained_dir /path-to-pretrained-model-checkpoints/ \
+    -n_trials 30 -job_time_limit 4:00 -fit_time_limit 3600 \
+    --scale_x --scale_y --slurm \
+    -ml $cpu_ml
+
+python experiment/analyze.py datasets/firstprinciples \
+    -script optimize_model \
+    -results results_first_principles_tuning/ \
+    -images /path-to-your-images/ \
+    -pretrained_dir /path-to-pretrained-model-checkpoints/ \
+    -n_trials 30 -job_time_limit 4:00 -fit_time_limit 3600 \
+    --scale_x --scale_y --slurm \
+    -ml $gpu_ml
+```
+
+Glue them with 
+
+```bash
+python postprocessing/scripts/collate_experiments_results.py './results_first_principles_tuning/' './results/first-principles-tuning/'
+```
 
 ### Building docker locally
 

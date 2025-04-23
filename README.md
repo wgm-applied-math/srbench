@@ -59,7 +59,16 @@ Methods currently benchmarked:
 - **TIR** - [paper](https://doi.org/10.1145/3597312)
 - **TPSR** - [paper](https://openreview.net/forum?id=0rVXQEeFEL)
 - **uDSR** - [paper](https://proceedings.neurips.cc/paper_files/paper/2022/file/dbca58f35bddc6e4003b2dd80e42f838-Paper-Conference.pdf)
-  
+
+## Benchmark results
+
+We made available all of our experiments' results as `feather` files inside `/results/`.
+
+A detailed guide on how to reproduce the experiments by yourself is provided in `docs/user_guide.md`.
+
+The experiments are submitted locally or to a SLURM manager using shell scripts to pass arguments to the `experiment/analyze.py` script.
+The `analyze` file is the main entry point as it will parse the flags and create specific python commands to run each experiment independently.
+
 # References
 
 > **A paper containing the results from this repository is under review at GECCO 2025 Symbolic Regression Workshop.**
