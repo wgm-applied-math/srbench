@@ -29,3 +29,28 @@ def test_evaluate_model(ml):
                    algorithm.model,
                    test=True # testing
                   )
+
+
+
+from optimize_model import evaluate_model as evaluate_model_optimize
+def test_optimize_model(ml):
+    print('running test_evaluate_model with ml=',ml)
+    dataset = 'test/192_vineyard_small.tsv.gz'
+    results_path = 'tmp_results'
+    random_state = 42
+
+    algorithm = importlib.__import__(f'methods.{ml}.regressor',globals(),
+                                     locals(),
+                                   ['est','hyper_params','complexity'])
+
+    print('algorithm imported:',algorithm)
+    evaluate_model_optimize(dataset, 
+                   results_path, 
+                   random_state, 
+                   ml,
+                   algorithm.est, 
+                   algorithm.hyper_params, 
+                   algorithm.complexity,
+                   algorithm.model,
+                   test=True # testing
+                  )

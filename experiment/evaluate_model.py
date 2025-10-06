@@ -39,22 +39,28 @@ def set_env_vars(n_jobs):
     os.environ['OPENBLAS_NUM_THREADS'] = n_jobs 
     os.environ['MKL_NUM_THREADS'] = n_jobs
 
-def evaluate_model(
+def evaluate_model(*, 
+    # minimal working experiment
     dataset, 
     results_path,
     random_state,
     est_name,
     est,
     model,
+    algorithm,
+
+    # Extra configurations
     ecotracker=False,
     test=False,
-    sym_data=False,
-    save_pop=False,
     target_noise=0.0, 
     feature_noise=0.0, 
-    ##########
-    # valid options for eval_kwargs
-    ##########
+    use_tuned=False,
+    fit_time_limit=3600,
+
+    # valid options for eval_kwargs (may be specific for some algorithms, so they can set 
+    # and it will be overriden here)
+    sym_data=False,
+    save_pop=False,
     test_params={},
     max_train_samples=0,
     scale_x=True,
@@ -155,9 +161,9 @@ def evaluate_model(
     if test and len(test_params) != 0:
         est.set_params(**test_params)
 
-    if args.TUNED:
+    if use_tuned:
         try:
-            tuned = importlib.__import__('methods.'+args.ALG+'._params',
+            tuned = importlib.__import__('methods.'+est_name+'._params',
                                         globals(), locals(), ['*'] )
             est.set_params(**tuned.params)
         except Exception as e:
@@ -174,10 +180,10 @@ def evaluate_model(
                       str(random_state),
                       ])
 
-    if args.Y_NOISE > 0:
-        id += '_target-noise'+str(args.Y_NOISE)
-    if args.X_NOISE > 0:
-        id += '_feature-noise'+str(args.X_NOISE)
+    if target_noise > 0:
+        id += '_target-noise'+str(target_noise)
+    if feature_noise > 0:
+        id += '_feature-noise'+str(feature_noise)
 
     if ecotracker:
         # file name should be something that will avoid parallel writing
@@ -197,7 +203,7 @@ def evaluate_model(
     print('training',est)
     
     # time limits
-    MAXTIME = args.FITTIME
+    MAXTIME = fit_time_limit
     if hasattr(est, 'max_time'):
         est.max_time = MAXTIME
         print('max time set:',MAXTIME)
@@ -328,8 +334,8 @@ def evaluate_model(
         results['complexity_function'] = 'user_defined'
     
     results['model_size'] = cplx
-    results['target_noise']  = args.Y_NOISE
-    results['feature_noise'] = args.X_NOISE
+    results['target_noise']  = target_noise
+    results['feature_noise'] = feature_noise
 
     ##################################################
     # Population analysis
@@ -386,10 +392,10 @@ def evaluate_model(
         '_'.join([dataset_name, est_name, str(random_state)])
     )
 
-    if args.Y_NOISE > 0:
-        save_file += '_target-noise'+str(args.Y_NOISE)
-    if args.X_NOISE > 0:
-        save_file += '_feature-noise'+str(args.X_NOISE)
+    if target_noise > 0:
+        save_file += '_target-noise'+str(target_noise)
+    if feature_noise > 0:
+        save_file += '_feature-noise'+str(feature_noise)
         
     print('save_file:',save_file)
 
@@ -470,13 +476,21 @@ if __name__ == '__main__':
     eval_kwargs['scale_x'] = args.SCALE_X
     eval_kwargs['scale_y'] = args.SCALE_Y
 
-    evaluate_model(args.INPUT_FILE,
-                   args.RDIR,
-                   args.RANDOM_STATE,
-                   args.ALG,
-                   algorithm.est,  
-                   algorithm.model, 
-                   test = args.TEST, 
-                   ecotracker=args.ECOTRACKER,
-                   **eval_kwargs
-                  )
+    evaluate_model(
+        dataset=args.INPUT_FILE,
+        results_path=args.RDIR,
+        random_state=args.RANDOM_STATE,
+        est_name=args.ALG,
+        est=algorithm.est,  
+        model=algorithm.model,
+        algorithm=algorithm,
+        
+        ecotracker=args.ECOTRACKER,
+        test=args.TEST,
+        target_noise=args.Y_NOISE, 
+        feature_noise=args.X_NOISE, 
+        use_tuned=args.TUNED,
+        fit_time_limit=args.FITTIME,
+        
+        **eval_kwargs
+    )

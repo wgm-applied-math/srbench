@@ -129,21 +129,29 @@ class WrapEstimator(BaseEstimator, RegressorMixin):
         print(f"set_params updated to parameters: {str(self.get_params())}")
         return self
 
-def evaluate_model(
+# Very similar to evaluate model, but has an inner optimization before fitting the final model
+def evaluate_model(*, 
+    # minimal working experiment
     dataset, 
     results_path,
     random_state,
     est_name,
     est,
     model,
+    algorithm,
+
+    # Extra configurations
+    ecotracker=False,
     test=False,
-    sym_data=False,
     target_noise=0.0, 
     feature_noise=0.0, 
-    ##########
-    # valid options for eval_kwargs
-    ##########
-    ecotracker=False,
+    use_tuned=False,
+    fit_time_limit=3600,
+
+    # valid options for eval_kwargs (may be specific for some algorithms, so they can set 
+    # and it will be overriden here)
+    sym_data=False,
+    save_pop=False,
     test_params={},
     max_train_samples=0,
     scale_x=True,
@@ -164,10 +172,10 @@ def evaluate_model(
         '_'.join([dataset_name, "tuned"+est_name, str(random_state)])
     )
 
-    if args.Y_NOISE > 0:
-        save_file += '_target-noise'+str(args.Y_NOISE)
-    if args.X_NOISE > 0:
-        save_file += '_feature-noise'+str(args.X_NOISE)
+    if target_noise > 0:
+        save_file += '_target-noise'+str(target_noise)
+    if feature_noise > 0:
+        save_file += '_feature-noise'+str(feature_noise)
         
     print('save_file:',save_file)
 
@@ -267,10 +275,10 @@ def evaluate_model(
     ################################################## 
     # Fit models
     ################################################## 
-    if args.Y_NOISE > 0:
-        id += '_target-noise'+str(args.Y_NOISE)
-    if args.X_NOISE > 0:
-        id += '_feature-noise'+str(args.X_NOISE)
+    if target_noise > 0:
+        id += '_target-noise'+str(target_noise)
+    if feature_noise > 0:
+        id += '_feature-noise'+str(feature_noise)
 
     if not use_dataframe: 
         assert isinstance(X_train_scaled, np.ndarray)
@@ -286,15 +294,15 @@ def evaluate_model(
 
         # time limits
         if hasattr(est, 'max_time'):
-            hp['max_time'] = [args.FITTIME]
+            hp['max_time'] = [fit_time_limit]
         elif hasattr(est, 'timeout_in_seconds'): # pysr
-            hp['timeout_in_seconds'] = [args.FITTIME]
+            hp['timeout_in_seconds'] = [fit_time_limit]
         elif hasattr(est, 'timeout'): # gpzgd
-            hp['timeout'] = [args.FITTIME]
+            hp['timeout'] = [fit_time_limit]
         elif hasattr(est, 'stop_time'): # nesymres
-            hp['stop_time'] = [args.FITTIME]
+            hp['stop_time'] = [fit_time_limit]
         elif hasattr(est, 'time_limit'): # afp, afp_fe, afp_ehc, eplex
-            hp['time_limit'] = [args.FITTIME]
+            hp['time_limit'] = [fit_time_limit]
 
         if hasattr(est, 'random_state'):
             # Different random states for the runs so we dont get the same results
@@ -305,7 +313,7 @@ def evaluate_model(
         hyper_params_wrapper.append({
             # 'base_estimator' : [clone(est)],
             'pre_train' : [(pre_train if pre_train else None)],
-            'max_time' : [args.FITTIME],
+            'max_time' : [fit_time_limit],
             'base_estimator_kwargs' : [{k : v[0] for (k, v) in hp.items()}]
         })
 
@@ -330,7 +338,7 @@ def evaluate_model(
         )
 
         signal.signal(signal.SIGALRM, alarm_handler)
-        signal.alarm((args.FITTIME + 600)*len(algorithm.hyper_params))
+        signal.alarm((fit_time_limit + 600)*len(algorithm.hyper_params))
         t0t = time.time()
         try:
             with parallel_backend('sequential', n_jobs=1):
@@ -364,7 +372,7 @@ def evaluate_model(
         tracker.start()
 
     signal.signal(signal.SIGALRM, alarm_handler)
-    signal.alarm(args.FITTIME + 600)
+    signal.alarm(fit_time_limit + 600)
     t0t = time.time()
     try:
         est.fit(X_train_scaled, y_train_scaled)
@@ -481,8 +489,8 @@ def evaluate_model(
         results['complexity_function'] = 'user_defined'
 
     results['model_size'] = int(cplx)
-    results['target_noise']  = args.Y_NOISE
-    results['feature_noise'] = args.X_NOISE
+    results['target_noise']  = target_noise
+    results['feature_noise'] = feature_noise
 
     ##################################################
     # write to file
@@ -569,13 +577,21 @@ if __name__ == '__main__':
     eval_kwargs['scale_x'] = args.SCALE_X
     eval_kwargs['scale_y'] = args.SCALE_Y
 
-    evaluate_model(args.INPUT_FILE,
-                   args.RDIR,
-                   args.RANDOM_STATE,
-                   args.ALG,
-                   algorithm.est,  
-                   algorithm.model, 
-                   ecotracker=args.ECOTRACKER,
-                   test = args.TEST, 
-                   **eval_kwargs
-                  )
+    evaluate_model(
+        dataset=args.INPUT_FILE,
+        results_path=args.RDIR,
+        random_state=args.RANDOM_STATE,
+        est_name=args.ALG,
+        est=algorithm.est,  
+        model=algorithm.model,
+        algorithm=algorithm,
+        
+        ecotracker=args.ECOTRACKER,
+        test=args.TEST,
+        target_noise=args.Y_NOISE, 
+        feature_noise=args.X_NOISE, 
+        use_tuned=args.TUNED,
+        fit_time_limit=args.FITTIME,
+        
+        **eval_kwargs
+    )
