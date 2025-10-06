@@ -1,4 +1,4 @@
-"""Borrows _HEAVILY_ gpzgd's example of how to wrap a CLI learner with a sklearn interface
+"""Borrows gpzgd's example of how to wrap a CLI learner with a sklearn interface
 """
 
 from dso import DeepSymbolicRegressor
@@ -13,6 +13,10 @@ import numpy as np
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.utils.validation import check_is_fitted, check_X_y, check_array
 
+import tensorflow as tf
+
+print("Num GPUs Available: ", tf.test.is_gpu_available())
+print("CUDA Available:     ", tf.test.is_built_with_cuda())
 
 function_set = [
     # ["add", "sub", "mul", "div", "sin", "cos", "exp", "log", "sqrt"],
@@ -24,13 +28,12 @@ degree = [2, 3]
 run_gp_meld = [True, False]
 
 hyper_params = []
-for f, d in zip(function_set, degree):
-    for r in run_gp_meld:
-        hyper_params.append({
-            'function_set' : [f],
-            'degree'       : [d],
-            'run_gp_meld'  : [r]
-        })
+for f in function_set:
+    hyper_params.append({
+        'function_set' : [f],
+        'degree'       : [2],
+        'run_gp_meld'  : [True]
+    })
         
 
 class uDSRRegressor(BaseEstimator, RegressorMixin):
@@ -127,7 +130,7 @@ class uDSRRegressor(BaseEstimator, RegressorMixin):
                 # Hyperparameters related to genetic programming hybrid methods.
                 "gp_meld" : {
                     "run_gp_meld" : self.run_gp_meld,
-                    "population_size" : 50,
+                    "population_size" : 25,
                     "generations" : 25,
                     "crossover_operator" : "cxOnePoint",
                     "p_crossover" : 0.5,
@@ -136,7 +139,7 @@ class uDSRRegressor(BaseEstimator, RegressorMixin):
                     "tournament_size" : 5,
                     "train_n" : 50,
                     "mutate_tree_max" : 3,
-                    "verbose" : False,
+                    "verbose" : True,
                     # Speeds up processing when doing expensive evaluations.
                     "parallel_eval" : False
                 },
@@ -210,9 +213,9 @@ class uDSRRegressor(BaseEstimator, RegressorMixin):
                 json.dump(config, config_file, indent=4)
 
             model = DeepSymbolicOptimizer(cname)
-
             train_result = model.train()
-            self.program_ = train_result["program"]
+
+        self.program_ = train_result["program"]
 
         return self
 

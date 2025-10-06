@@ -1,4 +1,4 @@
-"""Borrows _HEAVILY_ Fabricio Olivetti de França's example of how to wrap a CLI learner with a sklearn interface
+"""Borrows Fabricio Olivetti de França's example of how to wrap a CLI learner with a sklearn interface
 Output of the CLI command is in the format of:
 xbar;std.dev;model;size;train_mse
 
@@ -8,7 +8,7 @@ stringified version of the evolved model, size is the
 internally-computed size (number of nodes) of the model, and train_mse
 is the internally computed MSE of the model on the training data
 
-@Author: Fabricio Olivetti de França
+@Author: Guilherme Aldeia
 @Date: 2020-01-05
 
 """
