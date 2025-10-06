@@ -1,5 +1,7 @@
 # User Guide
 
+This documentation is intented to work with the `srbench_2025` branch. Make sure to clone and checkout to this specific branch if you want to follow this user guide.
+
 **NOTE**: if you are trying to reproduce the results from the 2022 Neurips Benchmark paper, you 
 should check out the [v2.0 release](https://github.com/cavalab/srbench/releases/tag/v2.0) version of this repo.  
 
@@ -135,10 +137,14 @@ python postprocessing/scripts/collate_experiments_results.py './results_first_pr
 
 When a new algorithm is submitted to SRBench, a GitHub workflow will generate a docker image and push it to [Docker Hub](hub.docker.com). Ths means that you can also easily pull the images, without having to deal with local installations.
 
-To build the docker images locally, first run `bash scripts/make_docker_compose_file.sh` in the root directory. Then `docker compose up` should create the images, and `docker compose build` will build them.
-To build the image of a specific algorithm you can call build with the name of the service (_e.g._ to build only feat you can do `docker compose build feat`). 
+To build the docker images locally, first run `bash scripts/make_docker_compose_file.sh` in the root directory to create a `docker-compose.yml` file describing all images that will be created.
+Then `docker compose up` should create all the images.
+Instead of creating all images, you can build the image of a specific algorithm with the name of the service (_e.g._ `docker compose build feat`). 
 
-You can now submit arbitrary python commands to the image, _e.g._ `docker compose run feat bash test.sh`
+The file `alg-Dockerfile` specifies the steps used to install the algorithm - you can check it out to see how it will be installed. 
+The build relies on `install_algorithm.sh`, so do not delete this file.
+
+You can now submit arbitrary python commands to the image, _e.g._ `docker compose run feat bash test.sh`. This command will run the test script to check if the algorithm is compatible.
 
 Or you can enter bash mode using an image with `docker compose run feat bash`.
 
@@ -146,17 +152,17 @@ Or you can enter bash mode using an image with `docker compose run feat bash`.
 
 If you make changes to the images and want to upload, first you create a docker account.
 
-Then, change `scripts/make_docker_compose_file.sh` and to use your docker hub ID. Also change the id in the base dockerfiles (`argDockerfile` and `alg-Dockerfile`). 
+Then, change the image name `srbench` in `scripts/make_docker_compose_file.sh` to your docker hub ID before running it.
 
 Now you can run `bash scripts/make_docker_compose_file.sh`, then `docker compose build`. 
 
-On the website, create a repository with the name of the service you want to push (that is, the name of the algorithm, _e.g._ `feat`) Login in the with `docker login`, and run `docker push docker_hub_id/alg_name:latest`, where `latest` is the tag.
+On the dockerhub website, create a repository with the name of the service you want to push (that is, the name of the algorithm, _e.g._ `feat`) Login in the with `docker login`, and run `docker push docker_hub_id/alg_name:latest`, where `latest` is the tag.
 
 ### Using singularity
 
-To use singularity (_i.e._ you need to move your images to a cluster) you may need to push to dockerhub first.
+To use singularity (_e.g._, you need to use your images on a cluster without docker support) you may need to use singularity, which requires you to push your to dockerhub first.
 
-Create a folder for the `.sif` files.
+First, create a folder for the `.sif` files.
 
 Pull the image with `singularity pull folder/name.sif docker://user_id/image`. It will convert the docker container into something singularity can use.
 
