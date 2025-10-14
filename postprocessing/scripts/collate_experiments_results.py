@@ -1,53 +1,38 @@
-"""Collates json-formatted results, cleans them up and saves them as .feather
-files.
-
-This works with results generated with evaluate_model and optimize_model.
-However, it does not handle results with varying levels of target noise.
-
-There is a special file for loading experiments from the feynman track, 
-called collate_groundtruth_results.py.
 """
-# Author: William La Cava, williamlacava@gmail.com
-# SRBENCH
+Collates JSON-formatted results, cleans them up, and saves them as .feather files.
+
+Works with results generated with evaluate_model and optimize_model.
+Does not handle results with varying levels of target noise.
+
+For Feynman track experiments, see collate_groundtruth_results.py.
+"""
+# Original Author: William La Cava
+# Modified by: Guilherme Aldeia
 # License: GPLv3
 
-################################################################################
-# Black-box problems
-################################################################################
-import pandas as pd
-import json
-import numpy as np
-from glob import glob
-from tqdm import tqdm
+# NOTE: you may need to install these: pyarrow, tqdm.
+# It is better to install pyarrow via conda than pip.
+
 import os
 import sys
-import pdb
-from improving_names import *
+import json
+from glob import glob
+import pandas as pd
+import numpy as np
+from tqdm import tqdm
 
-# Where to load the results
-rdir = '../../results_blackbox/'
-if len(sys.argv) > 1:
-    rdir = sys.argv[1]
-else:
-    print('no rdir provided, using',rdir)
-print('reading results from directory', rdir)
+from improving_names import improve_names, add_metadata
 
-# Where to save the report
-sdir = '../../results/black-box/'
-if len(sys.argv) > 2:
-    sdir = sys.argv[2]
-else:
-    print('no sdir provided, using', sdir)
+# Directories
+rdir = sys.argv[1] if len(sys.argv) > 1 else '../../results_blackbox/'
+sdir = sys.argv[2] if len(sys.argv) > 2 else '../../results/black-box/'
 
-print('saving summary to directory', sdir)
-if not os.path.exists(sdir):
-    print("Creating directory", sdir)
-    os.makedirs(sdir)
-    
-##########
-# load data from json
-##########
-frames = []
+print('Reading results from directory', rdir)
+print('Saving summary to directory', sdir)
+
+os.makedirs(sdir, exist_ok=True)
+
+# Columns to keep
 comparison_cols = [
     'dataset',
     'algorithm',
@@ -61,111 +46,106 @@ comparison_cols = [
     'params'
 ]
 
-fails = []
+# Load JSON results
+frames, fails = [], []
 for f in tqdm(glob(rdir + '/*/*.json')):
-    
     # leave out symbolic data
     if 'feynman_' in f or 'strogatz_' in f:
         continue
-    
-    try: 
-        r = json.load(open(f,'r'))
-
-        if 'cv_results' in f: # cleaning the "tuned" from the algorithm name
+    try:
+        r = json.load(open(f, 'r'))
+        if 'cv_results' in f:
+            # cleaning the "tuned" from the algorithm name
             r['algorithm'] = r['algorithm'].replace('tuned', '')
 
-        if isinstance(r['symbolic_model'],list):
-#             print(f)
-            sm = ['B'+str(i)+'*'+ri for i, ri in enumerate(r['symbolic_model'])]
-            sm = '+'.join(sm)
+        if isinstance(r['symbolic_model'], list):
+            sm = '+'.join([f'B{i}*{ri}' for i, ri in enumerate(r['symbolic_model'])])
             r['symbolic_model'] = sm
-            
-        sub_r = {k:v for k,v in r.items() if k in comparison_cols}
-    #     df = pd.DataFrame(sub_r)
-        frames.append(sub_r) 
-    #     print(f)
-    #     print(r.keys())
+
+        frames.append({k: v for k, v in r.items() if k in comparison_cols})
     except Exception as e:
-        fails.append([f,e])
-        pass
-    
-print(len(fails),'fails:',fails)
+        fails.append([f, e])
 
-# df_results = pd.concat(frames)
+print(len(fails), 'fails:', fails)
+
+# Build DataFrame
 df_results = pd.DataFrame.from_records(frames)
-df_results['params_str'] = df_results['params'].apply(str)
-df_results = df_results.drop(columns=['params'])
+df_results['params_str'] = df_results.pop('params').apply(str)
 
-##########
-# cleanup
-##########
-df_results = df_results.rename(columns={'time_time':'training time (s)'})
-df_results.loc[:,'training time (hr)'] = df_results['training time (s)']/3600
+# Cleanup
+df_results = df_results.rename(columns={'time_time': 'training time (s)'})
+df_results['training time (hr)'] = df_results['training time (s)'] / 3600
 
-####################
-# Improving names and adding metadata
-####################
+# Improve names and add metadata
 df_results = improve_names(df_results)
 df_results = add_metadata(df_results)
 
-# Only SR methods --- excluding sklearn stuff
-df_results = df_results[df_results["symbolic_alg"]==True]
+# Keep only symbolic regression methods
+df_results = df_results[df_results["symbolic_alg"]]
 
-print('mean trial count:')
-print(df_results.groupby('algorithm')['dataset'].count().sort_values()
-      / df_results.dataset.nunique())
+print('Mean trial count per algorithm:')
+print(df_results.groupby('algorithm')['dataset'].count() / df_results.dataset.nunique())
 
-##############################
-# Adding more information
-##############################
-# add modified R2 with 0 floor
-df_results['r2_zero_test'] = df_results['r2_test'].apply(lambda x: max(x,0))
+# Additional metrics
+df_results['r2_zero_test'] = df_results['r2_test'].apply(lambda x: max(x, 0))
+df_results['friedman_dataset'] = df_results['dataset'].str.contains('_fri_')
+print('Loaded', len(df_results), 'results')
 
-# label friedman ddatasets
-df_results.loc[:,'friedman_dataset'] = df_results['dataset'].str.contains('_fri_')
-print('loaded',len(df_results),'results')
+# Create summary
+df_results2 = df_results.merge(
+    df_results.groupby('dataset')['algorithm'].nunique().reset_index(),
+    on='dataset', suffixes=('', '_count')
+)
 
-##############################
-# Creating summary report file
-##############################
-
-df_results2 = df_results.merge(df_results.groupby('dataset')['algorithm'].nunique().reset_index(),
-                              on='dataset',suffixes=('','_count'))
-
-# rankings per trial per dataset
+# Rankings per trial per dataset
 for col in [c for c in df_results2.columns if c.endswith('test') or c.endswith('size')]:
     ascending = 'r2' not in col
-    df_results2[col+'_rank_per_trial']=df_results2.groupby(['dataset','random_state'])[col].apply(lambda x: 
-                                                                              round(x,3).rank(
-                                                                              ascending=ascending))
-    
-df_sum = df_results2.groupby(['algorithm','dataset'],as_index=False).median()
-df_sum['rmse_test'] = df_sum['mse_test'].apply(np.sqrt)
-df_sum['log_mse_test'] = df_sum['mse_test'].apply(lambda x: np.log(1+x))
-df_sum['*algorithm*'] = df_sum.apply(
-    lambda row: ('*' if row['symbolic_alg'] else "")+row['algorithm'], axis=1 )
-    
-df_results = df_results2
+    df_results2[col + '_rank_per_trial'] = df_results2 \
+        .groupby(['dataset', 'random_state'], group_keys=False)[col] \
+        .apply(lambda x: round(x, 3).rank(ascending=ascending))
 
-# rankings and normalized scores per dataset
+# Removing non-numerical columns first
+df_sum = df_results2.drop(columns=['symbolic_model', 'params_str'])\
+                    .groupby(['algorithm', 'dataset'], as_index=False).median()
+
+df_sum['rmse_test'] = df_sum['mse_test'].apply(np.sqrt)
+df_sum['log_mse_test'] = df_sum['mse_test'].apply(lambda x: np.log(1 + x))
+df_sum['*algorithm*'] = df_sum.apply(lambda row: ('*' if row['symbolic_alg'] else '') + row['algorithm'], axis=1)
+
+# Rankings and normalized scores
 for col in [c for c in df_sum.columns if c.endswith('test') or c.endswith('size')]:
     ascending = 'r2' not in col
-    df_sum[col+'_rank']=df_sum.groupby(['dataset'])[col].apply(lambda x: 
-                                                                        round(x,3).rank(ascending=ascending)
-                                                                  )
-    df_sum[col+'_norm'] = df_sum.groupby('dataset')[col].apply(lambda x: (x-x.min())/(x.max()-x.min()))
-    
 
-for col in ['algorithm','dataset']:
-    print(df_results[col].nunique(), col+'s')
+    # Rank per dataset
+    df_sum[col + '_rank'] = df_sum.groupby('dataset')[col] \
+        .transform(lambda x: round(x.rank(ascending=ascending), 3))
 
-###############################
-# save results and summary data
-###############################
+    # Normalize per dataset
+    df_sum[col + '_norm'] = df_sum.groupby('dataset')[col] \
+        .transform(lambda x: (x - x.min()) / (x.max() - x.min()))
 
-df_sum.to_csv(f'{sdir}/results-summary.csv.gz',
-    compression='gzip',index=False)
-print(f'summary saved to {sdir}/results-summary.csv.gz')
+for col in ['algorithm', 'dataset']:
+    print(df_results[col].nunique(), col + 's')
 
+# Quick glance at the results
+avg_ranks = pd.DataFrame({
+    'algorithm': df_sum['algorithm'].unique()
+})
+
+# Compute mean rank for r2_test (higher is better → ascending=False)
+avg_ranks['r2_test_avg_rank'] = df_sum.groupby('algorithm')['r2_test_rank'] \
+    .mean().reindex(avg_ranks['algorithm']).values
+
+# Compute mean rank for model_size (smaller is better → ascending=True)
+avg_ranks['model_size_avg_rank'] = df_sum.groupby('algorithm')['model_size_rank'] \
+    .mean().reindex(avg_ranks['algorithm']).values
+
+print("\nAverage ranks across datasets:")
+print(avg_ranks.sort_values('r2_test_avg_rank'))
+
+# Save results
+df_sum.to_csv(f'{sdir}/results-summary.csv.gz', compression='gzip', index=False)
 df_results.to_feather(f'{sdir}/results.feather')
-print(f'results saved to {sdir}/results.feather')
+
+print(f'Summary saved to {sdir}/results-summary.csv.gz')
+print(f'Results saved to {sdir}/results.feather')
