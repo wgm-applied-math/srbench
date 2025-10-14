@@ -12,33 +12,31 @@ services:
 EOF
 
 algorithms=$(ls algorithms/)
-# algorithms=(
-#     gplearn
-#     ffx
-# )
 
 for alg in ${algorithms[@]} ; do
-  echo "Processing algorithm: ${alg}"
-  # allow user to specify their own Dockerfile. 
-  # otherwise use the default one (alg-Dockerfile)
-  if test -f "./algorithms/${alg}/Dockerfile" ; then
-    dockerfile="./algorithms/${alg}/Dockerfile" 
-  else
-    dockerfile="alg-Dockerfile"
-  fi
+    echo "Processing algorithm: ${alg}"
+    
+    # allow user to specify their own Dockerfile. 
+    # otherwise use the default one (alg-Dockerfile)
+    if test -f "./algorithms/${alg}/Dockerfile" ; then
+      dockerfile="./algorithms/${alg}/Dockerfile" 
+    else
+      dockerfile="alg-Dockerfile"
+    fi
 
-  cat <<EOF >> docker-compose.yml
+    # tabulation matters in the following lines!
+    cat <<EOF >> docker-compose.yml
   ${alg}:
-  image: srbench/${alg}
-  container_name: srbench-${alg}
-  build:
-    dockerfile: ${dockerfile}
-    args:
-    ALGORITHM: ${alg}
-  depends_on:
-    - base
-  volumes:
-    - ./experiment:/srbench
+    image: srbench/${alg}
+    container_name: srbench-${alg}
+    build:
+      dockerfile: ${dockerfile}
+      args:
+        ALGORITHM: ${alg}
+    depends_on:
+      - base
+    volumes:
+      - ./experiment:/srbench
 EOF
 done
 
