@@ -43,4 +43,3 @@ EOF
 done
 
 echo "Done!"
-done
