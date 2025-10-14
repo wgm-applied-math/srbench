@@ -42,7 +42,7 @@ def parse_args():
     )
 
     # Script name
-    parser.add_argument("-script", dest="script", type=str, default="evaluate_model", help="Name of Python script to execute inside container.")
+    parser.add_argument("-script", dest="script", type=str, default="optimize_model", help="Name of Python script to execute inside container.")
 
     # Directories and paths
     parser.add_argument("dataset_dir", type=str, help="Path to dataset directory (e.g., pmlb/datasets).")
@@ -70,19 +70,19 @@ def parse_args():
     parser.add_argument("--slurm", action="store_true", help="Submit jobs to SLURM cluster.")
     parser.add_argument("-n_jobs", type=int, default=1, help="Number of parallel jobs.")
     parser.add_argument("-fit_time_limit", dest="fit_time", type=int, default=3600, help="Time limit (in seconds) for model fitting.")
-    parser.add_argument("-job_time_limit", dest="job_time", type=str, default="48:00", help="Maximum job walltime (HH:MM).")
-    parser.add_argument("-m", dest="M", type=int, default=8192, help="Memory allocation per job (MB).")
+    parser.add_argument("-job_time_limit", dest="job_time", type=str, default="8:00", help="Maximum job walltime (HH:MM).")
+    parser.add_argument("-m", dest="M", type=int, default=10000, help="Memory allocation per job (MB).")
 
     # Reproducibility
     parser.add_argument("-seed", dest="seed", type=int, default=None, help="Random seed for reproducibility.")
-    parser.add_argument("-n_trials", dest="n_trials", type=int, default=1, help="Number of trials per learner.")
+    parser.add_argument("-n_trials", dest="n_trials", type=int, default=30, help="Number of trials per learner.")
     parser.add_argument("-starting_seed", dest="start_seed", type=int, default=0, help="Starting seed index.")
 
     # Behavior controls
     parser.add_argument("--noskips", action="store_true", help="Overwrite existing results.")
     parser.add_argument("--test", action="store_true", help="Run in test mode with minimal configuration.")
     parser.add_argument("-job_limit", type=int, default=5000, help="Maximum number of concurrent jobs.")
-    parser.add_argument("-max_samples", type=int, default=0, help="Limit number of training samples.")
+    parser.add_argument("-max_samples", type=int, default=40000, help="Limit number of training samples.")
 
     return parser.parse_args()
 
