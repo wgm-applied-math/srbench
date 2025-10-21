@@ -1,6 +1,7 @@
 import os
 import pmlb
-from pmlb import fetch_data
+from pmlb import fetch_data, regression_dataset_names 
+import yaml
 
 print(pmlb.__version__)
 
@@ -34,3 +35,17 @@ for category_name, dataset_list in dataset_categories.items():
             print(f"Successfully downloaded {dataset_name}")
         except Exception as e:
             print(f"Error downloading {dataset_name}: {str(e)}")
+        
+        # Write metadata.yml file
+        metadata = {
+            "name": dataset_name,
+            "task": "regression",
+            "n_instances": dataset.shape[0],
+            "n_features": dataset.shape[1]
+        }
+
+        dataset_folder = os.path.join(category_path, dataset_name)
+        os.makedirs(dataset_folder, exist_ok=True)
+        metadata_path = os.path.join(dataset_folder, "metadata.yaml")
+        with open(metadata_path, "w") as f:
+            yaml.dump(metadata, f)
