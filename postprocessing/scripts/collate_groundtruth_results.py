@@ -125,6 +125,23 @@ df_results.loc[:,'symbolic_solution'] = \
 df_results.loc[:,'symbolic_solution'] = \
     df_results['symbolic_solution'] & ~(df_results['simplified_symbolic_model'] == 'nan')
 
+
+# Compute average ranks and average number of trials per algorithm
+avg_ranks = df_results.groupby('algorithm').agg(
+    r2_test_avg_rank=('r2_test_rank', 'mean'),
+    model_size_avg_rank=('model_size_rank', 'mean')
+).reset_index()
+
+trial_counts = df_results.groupby(['algorithm', 'dataset', 'random_state']).size() \
+    .groupby('algorithm').mean().reset_index(name='avg_num_trials')
+
+avg_ranks = avg_ranks.merge(trial_counts, on='algorithm')
+avg_ranks = avg_ranks.sort_values('r2_test_avg_rank')
+
+print("\nAverage ranks and average number of trials across datasets:")
+print(avg_ranks)
+
+
 ##########
 # save results
 ##########
