@@ -1,0 +1,35 @@
+name: brush
+channels:
+    - conda-forge
+dependencies:
+    # TODO: try to relax dependencies versions
+    - python>=3.9 #=3.8.2
+    - cmake #=3.18.*
+    - eigen=3.4.*
+    - fmt
+    - gcc<=13.2.0
+    - gxx >= 12.0
+    - ninja
+    - ceres-solver=2.1.0
+    - boost-cpp=1.82.0
+    - pybind11>=2.6.2
+    - taskflow
+    - pytest #=6.2.4
+    - pydot
+    - scikit-learn
+    - scikit-build-core
+    - numpy=1.26.4
+    - pandas=1.4.3
+    # not required for install the c++ library (but used in the wrapper)
+    - jupyter
+    - ipython
+    - pip
+    - nlohmann_json
+    - pybind11_json
+    # Building documentation
+    - doxygen
+    - sphinx
+    - pip:
+      - graphviz
+      - deap
+      - pmlb
