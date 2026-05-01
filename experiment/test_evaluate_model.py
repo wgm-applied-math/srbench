@@ -30,8 +30,6 @@ def test_evaluate_model(ml):
                    test=True # testing
                   )
 
-
-
 from optimize_model import evaluate_model as evaluate_model_optimize
 def test_optimize_model(ml):
     print('running test_evaluate_model with ml=',ml)
