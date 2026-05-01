@@ -34,6 +34,7 @@ RUN apt update && apt install -y \
     # bzip2 \
     # ca-certificates \
     curl \
+    procps \
     # git \
     # wget \
     build-essential \
