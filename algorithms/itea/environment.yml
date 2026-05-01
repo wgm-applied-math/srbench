@@ -1,6 +1,8 @@
 channels:
     - conda-forge
 dependencies:
+    - python=3.11.10
+    - numpy==1.26.4
     - gmp
     - gsl 
     - libffi 
