@@ -11,7 +11,8 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import KFold
 from sklearn.base import BaseEstimator, RegressorMixin
-from sympy import lambdify, parse_expr, Symbol, preorder_traversal
+from sympy import lambdify, parse_expr, Symbol
+
 
 def compute_sigma(X, y):
     rf = RandomForestRegressor()
@@ -152,75 +153,6 @@ class OperonOptuna(BaseEstimator, RegressorMixin):
     def predict(self, X):
         return self.best_estimator.predict(X)
 
-# Disabling gridsearch, as operon already performs a parameter optimization everytime it runs
-hyper_params = [
-#         {
-#             'population_size': (100,),
-#             'pool_size': (100,),
-#             'max_length': (25,),
-#             'allowed_symbols': ('add,mul,aq,constant,variable',),
-#             'local_iterations': (5,),
-#             'offspring_generator': ('basic',),
-#             'tournament_size': (3,),
-#             'reinserter': ('keep-best',),
-#             'max_evaluations': (int(5e5),)
-#         },
-#         {
-#             'population_size': (100,),
-#             'pool_size': (100,),
-#             'max_length': (25,),
-#             'allowed_symbols': ('add,mul,aq,exp,log,sin,tanh,constant,variable',),
-#             'local_iterations': (5,),
-#             'offspring_generator': ('basic',),
-#             'tournament_size': (3,),
-#             'reinserter': ('keep-best',),
-#             'max_evaluations': (int(5e5),)
-#         },
-#         {
-#             'population_size': (100,),
-#             'pool_size': (100,),
-#             'max_length': (50,),
-#             'allowed_symbols': ('add,mul,aq,constant,variable',),
-#             'local_iterations': (5,),
-#             'offspring_generator': ('basic',),
-#             'tournament_size': (3,),
-#             'reinserter': ('keep-best',),
-#             'max_evaluations': (int(5e5),)
-#         },
-#         {
-#             'population_size': (500,),
-#             'pool_size': (500,),
-#             'max_length': (25,),
-#             'allowed_symbols': ('add,mul,aq,constant,variable',),
-#             'local_iterations': (5,),
-#             'offspring_generator': ('basic',),
-#             'tournament_size': (5,),
-#             'reinserter': ('keep-best',),
-#             'max_evaluations': (int(5e5),)
-#         },
-#         {
-#             'population_size': (500,),
-#             'pool_size': (500,),
-#             'max_length': (25,),
-#             'allowed_symbols': ('add,mul,aq,exp,log,sin,tanh,constant,variable',),
-#             'local_iterations': (5,),
-#             'offspring_generator': ('basic',),
-#             'tournament_size': (5,),
-#             'reinserter': ('keep-best',),
-#             'max_evaluations': (int(5e5),)
-#         },
-#         {
-#             'population_size': (500,),
-#             'pool_size': (500,),
-#             'max_length': (50,),
-#             'allowed_symbols': ('add,mul,aq,constant,variable',),
-#             'local_iterations': (5,),
-#             'offspring_generator': ('basic',),
-#             'tournament_size': (5,),
-#             'reinserter': ('keep-best',),
-#             'max_evaluations': (int(5e5),)
-#         },
-]
 
 num_threads = int(os.environ['OMP_NUM_THREADS']) if 'OMP_NUM_THREADS' in os.environ else 1
 
@@ -261,16 +193,6 @@ def model(est, X=None):
 
 
 def complexity(est):
-    # scaling nodes not counted
-    if isinstance(est, SympyExprModel):
-        c=0
-        for arg in preorder_traversal(est.model):
-            c += 1
-        return c
-
-    # from pyoperon source:
-    # 'model_length': self.model_.Length - 4, # do not count scaling nodes?
-    # 'model_complexity': self.model_.Length - 4 + 2 * sum(1 for x in self.model_.Nodes if x.IsVariable),
     return est.best_estimator.stats_['model_complexity']
 
 
