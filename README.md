@@ -35,7 +35,7 @@ There are 25 methods currently benchmarked:
 | Method |  |  |
 |:--|:--|:--|
 | **AFP** - [paper](http://dx.doi.org/10.1007/978-1-4419-7747-2_8) | **AFP_fe** | **AFP_ehc** - [paper](https://www.sciencedirect.com/science/article/abs/pii/S0952197616301294) |
-| **Bingo** - [paper](https://dl.acm.org/doi/10.1145/3520304.3534031) | **Brush** - [code](https://github.com/cavalab/brush/tree/multi_armed_bandits) | **BSR** - [paper](https://arxiv.org/abs/1910.08892) |
+| **Bingo** - [paper](https://dl.acm.org/doi/10.1145/3520304.3534031) | **Brush** - [paper](https://royalsocietypublishing.org/rsta/article/384/2317/20240588/481208/Towards-symbolic-regression-for-interpretable) | **BSR** - [paper](https://arxiv.org/abs/1910.08892) |
 | **E2E** - [paper](https://papers.neurips.cc/paper_files/paper/2022/file/42eb37cdbefd7abae0835f4b67548c39-Paper-Conference.pdf) | **EPLEX** - [paper](https://direct.mit.edu/evco/article-pdf/27/3/377/1858632/evco_a_00224.pdf) | **EQL** - [paper](http://proceedings.mlr.press/v80/sahoo18a/sahoo18a.pdf) |
 | **FEAT** - [paper](https://openreview.net/pdf?id=Hke-JhA9Y7) | **FFX** - [paper](https://link.springer.com/chapter/10.1007/978-1-4614-1770-5_13) | **Genetic Engine** - [paper](https://dl.acm.org/doi/10.1145/3564719.3568697) |
 | **GPGomea** - [paper](http://dx.doi.org/10.1162/evco_a_00278) | **GPlearn** - [paper]() | **GPZGD** - [paper](https://doi.org/10.1145/3377930.3390237) |
@@ -60,26 +60,53 @@ A detailed guide on how to reproduce the experiments by yourself is provided in 
 
 Once you get all the results, you nee to collate the results using the `collate` scripts in [`./postprocessing/scripts`](./postprocessing/scripts/collate_experiments_results.py)
 
+**Note on Git LFS:** This repository uses [Git Large File Storage (LFS)](https://git-lfs.com/) for storing large dataset files. GitHub provides sufficient free bandwidth and storage per month [for GitHub Free accounts](https://docs.github.com/en/billing/concepts/product-billing/git-lfs); additional bandwidth requires a paid plan. If you have a [GitHub Student account](https://education.github.com), you may see larger capacities. If you don't need the actual results files, you can clone without LFS using:
+
+```bash
+GIT_LFS_SKIP_SMUDGE=1 git clone https://github.com/cavalab/srbench.git
+```
+
+A detailed guide on how to reproduce the experiments by yourself is provided in [`docs/user_guide.md`](./docs/user_guide.md).
+
+Once you get all the results, you nee to collate the results using the `collate` scripts in [`./postprocessing/scripts`](./postprocessing/scripts/collate_experiments_results.py)
+
 # References
 
-> **A paper containing the results from this repository is under review at GECCO 2025 Symbolic Regression Workshop.**
+## [Call for action](https://github.com/cavalab/srbench/tree/srbench_2025)
 
-A _Call for action_ was reported in the GECCO 2025 paper:
+An alternative approach for benchmarking symbolic regression methods, including all $25$ available methods, was reported in our GECCO 2025 SR workshop paper:
 
-> Imai Aldeia, G. S., Zhang, H., Bomarito, G., Cranmer, M., Fonseca, A., Burlacu, B., La Cava, W., and de França, F. 2025. Call for Action: towards the next generation of symbolic regression benchmark. _Proceedings of the Genetic and Evolutionary Computation Conference Companion_
-[doi](https://dl.acm.org/doi/10.1145/3712255.3734309),
-[preprint](https://arxiv.org/abs/2505.03977)
+> Imai Aldeia, G. S., Zhang, H., Bomarito, G., Cranmer, M., Fonseca, A., Burlacu, B., La Cava, W., and de França, F. 2025. 
+> Call for Action: towards the next generation of symbolic regression benchmark. 
+> _Proceedings of the Genetic and Evolutionary Computation Conference Companion_
+> 
+> [doi](https://dl.acm.org/doi/10.1145/3712255.3734309),
+> [preprint](https://arxiv.org/abs/2505.03977)
 
-[SRBench](https://github.com/EpistasisLab/regression-benchmark/releases/tag/v2.0) was reported in the Neurips 2021 paper: 
+## [v2.0](https://github.com/EpistasisLab/regression-benchmark/releases/tag/v2.0)
+
+A pre-print of the current version of the benchmark is available:
+[v2.0](https://github.com/EpistasisLab/regression-benchmark/releases/tag/v2.0) was reported in our Neurips 2021 paper: 
 
 > La Cava, W., Orzechowski, P., Burlacu, B., de França, F. O., Virgolin, M., Jin, Y., Kommenda, M., & Moore, J. H. (2021). 
-Contemporary Symbolic Regression Methods and their Relative Performance. 
+> Contemporary Symbolic Regression Methods and their Relative Performance. 
 _Neurips Track on Datasets and Benchmarks._
-[arXiv](https://arxiv.org/abs/2107.14351),
-[neurips.cc](https://datasets-benchmarks-proceedings.neurips.cc/paper/2021/hash/c0c7c76d30bd3dcaefc96f40275bdc0a-Abstract-round1.html)
+> 
+> [arXiv](https://arxiv.org/abs/2107.14351),
+> [neurips.cc](https://datasets-benchmarks-proceedings.neurips.cc/paper/2021/hash/c0c7c76d30bd3dcaefc96f40275bdc0a-Abstract-round1.html)
 
-[v1.0](https://github.com/EpistasisLab/regression-benchmark/releases/tag/v1.0) was reported in the GECCO 2018 paper: 
+## [v1.0](https://github.com/EpistasisLab/regression-benchmark/releases/tag/v1.0) 
+
+v1.0 was reported in our GECCO 2018 paper: 
 
 > Orzechowski, P., La Cava, W., & Moore, J. H. (2018). 
-Where are we now? A large benchmark study of recent symbolic regression methods. 
-GECCO 2018. [DOI](https://doi.org/10.1145/3205455.3205539), [Preprint](https://www.researchgate.net/profile/Patryk_Orzechowski/publication/324769381_Where_are_we_now_A_large_benchmark_study_of_recent_symbolic_regression_methods/links/5ae779b70f7e9b837d392dc9/Where-are-we-now-A-large-benchmark-study-of-recent-symbolic-regression-methods.pdf)
+> Where are we now? A large benchmark study of recent symbolic regression methods. 
+> GECCO 2018.
+>
+> [DOI](https://doi.org/10.1145/3205455.3205539),
+> [Preprint](https://www.researchgate.net/profile/Patryk_Orzechowski/publication/324769381_Where_are_we_now_A_large_benchmark_study_of_recent_symbolic_regression_methods/links/5ae779b70f7e9b837d392dc9/Where-are-we-now-A-large-benchmark-study-of-recent-symbolic-regression-methods.pdf)
+
+# Contact
+
+William La Cava ([@lacava](https://github.com/lacava)), william dot lacava at childrens dot harvard dot edu
+

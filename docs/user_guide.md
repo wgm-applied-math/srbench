@@ -9,7 +9,9 @@ should check out the [v2.0 release](https://github.com/cavalab/srbench/releases/
 
 ### Local install
 
-We have provided a [conda environment](../base_environment.yml) that should make installation easier.
+We have provided a [conda environment](../base_environment.yml) and [installation script](../scripts/install_algorithm.sh) that should make installation straightforward.
+The installation script is the same used internally when building the docker images.
+
 We've currently tested this on Ubuntu and CentOS. 
 Steps:
 
@@ -20,20 +22,22 @@ conda install -n base conda-libmamba-solver
 conda config --set solver libmamba
 ```
 
-1. Install the base conda environment. This will set up a python installation with some basic things needed to submit jobs and analyze the results:
+1. Install the conda environment naming it `srbench`:
 
 ```bash
-conda env create -f base_environment.yml
+conda env create -f environment.yml -n srbench
 conda activate srbench
 ```
 
-2. Pull the benchmark algorithm images with
+2. Install a benchmark algorithm:
+
+The `scripts/install_algorithm.sh` script installs a single algorithm by name. For example, to install gplearn:
 
 ```bash
-docker build --pull --rm -f "Dockerfile" -t srbench:latest "."
+bash scripts/install_algorithm.sh gplearn
 ```
 
-This docker build typically takes about 10 minutes.
+Replace `gplearn` with the name of any algorithm directory in `algorithms/` to install it into the srbench conda environment.
 
 3. Download the PMLB datasets:
 
