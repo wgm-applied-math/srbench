@@ -11,7 +11,8 @@ dependencies:
   - pyyaml
   - pip 
   - pip:
-    - git+https://github.com/EpistasisLab/pmlb
+    # - git+https://github.com/EpistasisLab/pmlb
+    - pmlb
     - pytest-order
     - eco2ai
     - tabulate
