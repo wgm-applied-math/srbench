@@ -1,10 +1,16 @@
-authors: # the participants
-  - Pierre-alexandre Kamienny
+authors:
+  - Pierre-Alexandre Kamienny
   - Stéphane d'Ascoli
   - Guillaume Lample
-  - François Charton
+  - Francois Charton
 email: pakamienny@fb.com
-name: End-to-End Transformer # name of the submission /method
-description:  # anything you'd like here to describe the method.
-url:  # a link to the project
+name: e2et
+description: | 
+  End-to-end Symbolic Regression with Transformers 
+  Pierre-Alexandre Kamienny, Stéphane d'Ascoli, Guillaume Lample, Francois Charton
+
+  Paper: https://arxiv.org/pdf/2204.10532.pdf
+  Download pre-trained model: https://dl.fbaipublicfiles.com/symbolicregression/model1.pt
+
+url: https://github.com/facebookresearch/symbolicregression
 

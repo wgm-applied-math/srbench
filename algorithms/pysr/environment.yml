@@ -3,3 +3,4 @@ channels:
 dependencies:
     - pysr==0.16
     - python==3.11
+    - numpy=1.26.4
