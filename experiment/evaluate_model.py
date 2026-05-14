@@ -3,7 +3,7 @@ import itertools
 import pandas as pd
 from sklearn.base import clone
 from sklearn.preprocessing import StandardScaler
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score  
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from sklearn.model_selection import train_test_split
 import warnings
 import time
@@ -35,13 +35,13 @@ def alarm_handler(signum, frame):
     raise TimeOutException
 
 def set_env_vars(n_jobs):
-    os.environ['OMP_NUM_THREADS'] = n_jobs 
-    os.environ['OPENBLAS_NUM_THREADS'] = n_jobs 
+    os.environ['OMP_NUM_THREADS'] = n_jobs
+    os.environ['OPENBLAS_NUM_THREADS'] = n_jobs
     os.environ['MKL_NUM_THREADS'] = n_jobs
 
-def evaluate_model(*, 
+def evaluate_model(*,
     # minimal working experiment
-    dataset, 
+    dataset,
     results_path,
     random_state,
     est_name,
@@ -52,12 +52,12 @@ def evaluate_model(*,
     # Extra configurations
     ecotracker=False,
     test=False,
-    target_noise=0.0, 
-    feature_noise=0.0, 
+    target_noise=0.0,
+    feature_noise=0.0,
     use_tuned=False,
-    fit_time_limit=3600,
+    fit_time_limit=30,
 
-    # valid options for eval_kwargs (may be specific for some algorithms, so they can set 
+    # valid options for eval_kwargs (may be specific for some algorithms, so they can set
     # and it will be overriden here)
     sym_data=False,
     save_pop=False,
@@ -81,16 +81,17 @@ def evaluate_model(*,
     if ("e2et" in est_name) or ('tpsr' in est_name) or ('nesymres' in est_name) \
     or ("dso" in est_name) or ('bingo' in est_name):
         use_dataframe = False
-    
+
     ##################################################
     # setup data
     ##################################################
     features, labels, feature_names = read_file(
-        dataset, 
-        use_dataframe=use_dataframe
+        dataset,
+        use_dataframe=use_dataframe,
+        sep="\t"
     )
     print('feature_names:',feature_names)
-    
+
     if sym_data:
         true_model = get_sym_model(dataset)
 
@@ -100,7 +101,7 @@ def evaluate_model(*,
                                                     test_size=0.25,
                                                     random_state=random_state)
 
-    # if dataset is large, subsample the training set 
+    # if dataset is large, subsample the training set
     if max_train_samples > 0 and len(y_train) > max_train_samples:
         print('subsampling training data from',len(X_train),
               'to',max_train_samples)
@@ -116,13 +117,13 @@ def evaluate_model(*,
     # scale and normalize the data
     if scale_x:
         print('scaling X')
-        sc_X = StandardScaler() 
+        sc_X = StandardScaler()
         X_train_scaled = sc_X.fit_transform(X_train)
         X_test_scaled = sc_X.transform(X_test)
         if use_dataframe:
-            X_train_scaled = pd.DataFrame(X_train_scaled, 
+            X_train_scaled = pd.DataFrame(X_train_scaled,
                                           columns=feature_names)
-            X_test_scaled = pd.DataFrame(X_test_scaled, 
+            X_test_scaled = pd.DataFrame(X_test_scaled,
                                           columns=feature_names)
     else:
         X_train_scaled = X_train
@@ -135,25 +136,25 @@ def evaluate_model(*,
     else:
         y_train_scaled = y_train
 
-    ################################################## 
+    ##################################################
     # noise
-    ################################################## 
+    ##################################################
     if target_noise > 0:
         print('adding',target_noise,'noise to target')
-        y_train_scaled += np.random.normal(0, 
+        y_train_scaled += np.random.normal(0,
                     target_noise*np.sqrt(np.mean(np.square(y_train_scaled))),
                     size=len(y_train_scaled))
     # add noise to the features
     if feature_noise > 0:
         print('adding',target_noise,'noise to features')
-        X_train_scaled = np.array([x 
+        X_train_scaled = np.array([x
             + np.random.normal(0, feature_noise*np.sqrt(np.mean(np.square(x))),
                                size=len(x))
                                    for x in X_train_scaled.T]).T
 
-    ################################################## 
+    ##################################################
     # run any method-specific pre_train routines
-    ################################################## 
+    ##################################################
     if pre_train:
         pre_train(est, X_train_scaled, y_train_scaled)
 
@@ -172,9 +173,9 @@ def evaluate_model(*,
                    "algorithm yet. run optimize_model first.")
         est_name = 'tuned'+est_name
 
-    ################################################## 
+    ##################################################
     # Fit models
-    ################################################## 
+    ##################################################
     id = '_'.join([dataset.split('/')[-1].split('.')[0],
                       est_name,
                       str(random_state),
@@ -194,14 +195,14 @@ def evaluate_model(*,
             alpha_2_code='US'
         )
 
-    if not use_dataframe: 
+    if not use_dataframe:
         assert isinstance(X_train_scaled, np.ndarray)
         assert isinstance(X_test_scaled, np.ndarray)
 
     print('X_train:',type(X_train_scaled),X_train_scaled.shape)
     print('y_train:',y_train_scaled.shape)
     print('training',est)
-    
+
     # time limits
     MAXTIME = fit_time_limit
     if hasattr(est, 'max_time'):
@@ -254,7 +255,7 @@ def evaluate_model(*,
         'algorithm':est_name,
         'params':jsonify(est.get_params()),
         'random_state':random_state,
-        'time_time': time_time, 
+        'time_time': time_time,
     }
     if sym_data:
         results['true_model'] = true_model
@@ -266,7 +267,7 @@ def evaluate_model(*,
         results['symbolic_model'] = "not implemented"
     elif 'X' in inspect.signature(model).parameters.keys():
         if not isinstance(X_train_scaled, pd.DataFrame):
-            X_df = pd.DataFrame(X_train_scaled, 
+            X_df = pd.DataFrame(X_train_scaled,
                                           columns=feature_names)
         else:
             X_df = X_train_scaled
@@ -279,8 +280,8 @@ def evaluate_model(*,
     ##################################################
     # scores
     ##################################################
-    for fold, target, X in  [ 
-                             ['train', y_train, X_train_scaled], 
+    for fold, target, X in  [
+                             ['train', y_train, X_train_scaled],
                              ['test', y_test, X_test_scaled]
                             ]:
 
@@ -292,8 +293,8 @@ def evaluate_model(*,
                               ('mae',mean_absolute_error),
                               ('r2', r2_score)
                              ]:
-            results[score + '_' + fold] = scorer(target, y_pred) 
-    
+            results[score + '_' + fold] = scorer(target, y_pred)
+
     # simplicity
     if results['symbolic_model'] != "not implemented":
         results['simplicity'] = simplicity(results['symbolic_model'], feature_names)
@@ -306,7 +307,7 @@ def evaluate_model(*,
             sympy_str = "not implemented"
         elif 'X' in inspect.signature(model).parameters.keys():
             if not isinstance(X_train_scaled, pd.DataFrame):
-                X_df = pd.DataFrame(X_train_scaled, 
+                X_df = pd.DataFrame(X_train_scaled,
                                             columns=feature_names)
             else:
                 X_df = X_train_scaled
@@ -323,16 +324,16 @@ def evaluate_model(*,
             return -1
 
         return int(c)
-            
+
     # Forcing all algorithms to use same notion of complexity
     cplx = sympy_complexity(est)
     results['complexity_function'] = 'sympy'
 
     # if sympy fails we will use their methods. This should be deprecated eventually
-    if cplx == -1 and ('complexity' in dir(algorithm) and algorithm.complexity is not None): 
+    if cplx == -1 and ('complexity' in dir(algorithm) and algorithm.complexity is not None):
         cplx = algorithm.complexity(est)
         results['complexity_function'] = 'user_defined'
-    
+
     results['model_size'] = cplx
     results['target_noise']  = target_noise
     results['feature_noise'] = feature_noise
@@ -354,8 +355,8 @@ def evaluate_model(*,
                 "model_str" : algorithm.model(p),
                 "model_size" : algorithm.complexity(p)
             }
-            for fold, target, X in  [ 
-                ['train', y_train, X_train_scaled], 
+            for fold, target, X in  [
+                ['train', y_train, X_train_scaled],
                 ['test', y_test, X_test_scaled]
             ]:
                 y_pred = None
@@ -363,7 +364,7 @@ def evaluate_model(*,
                     y_pred = np.asarray(p.execute(X.values)).reshape(-1,1)
                 else:
                     y_pred = np.asarray(p.predict(X)).reshape(-1,1)
-                
+
                 if scale_y:
                     y_pred = sc_y.inverse_transform(y_pred)
 
@@ -371,7 +372,7 @@ def evaluate_model(*,
                     ('mae',mean_absolute_error),
                     ('r2', r2_score)
                 ]:
-                    frame[f'{score}_{fold}'] = scorer(target, y_pred) 
+                    frame[f'{score}_{fold}'] = scorer(target, y_pred)
             frames.append(frame)
 
         pd.DataFrame.from_records(frames).to_csv(
@@ -396,7 +397,7 @@ def evaluate_model(*,
         save_file += '_target-noise'+str(target_noise)
     if feature_noise > 0:
         save_file += '_feature-noise'+str(feature_noise)
-        
+
     print('save_file:',save_file)
 
     with open(save_file + '.json', 'w') as out:
@@ -417,17 +418,17 @@ if __name__ == '__main__':
         description="Evaluate a method on a dataset.", add_help=False)
     parser.add_argument('INPUT_FILE', type=str,
                         help='Data file to analyze; ensure that the '
-                        'target/label column is labeled as "class".')     
+                        'target/label column is labeled as "class".')
     parser.add_argument('-h', '--help', action='help',
                         help='Show this help message and exit.')
-    parser.add_argument('-ml', action='store', dest='ALG',default=None,type=str, 
+    parser.add_argument('-ml', action='store', dest='ALG',default=None,type=str,
             help='Name of estimator (with matching file in methods/)')
     parser.add_argument('-results_path', action='store', dest='RDIR',
-                        default='results_test', type=str, 
+                        default='results_test', type=str,
                         help='Name of save file')
     parser.add_argument('-seed', action='store', dest='RANDOM_STATE',
                         default=42, type=int, help='Seed / trial')
-    parser.add_argument('-test',action='store_true', dest='TEST', 
+    parser.add_argument('-test',action='store_true', dest='TEST',
                        help='Used for testing a minimal version')
     parser.add_argument('-n_jobs',action='store',  type=str, default='4',
                         help='number of cores available')
@@ -439,21 +440,21 @@ if __name__ == '__main__':
     parser.add_argument('-feature_noise',action='store',dest='X_NOISE',
                         default=0.0, type=float, help='Gaussian noise to add'
                         'to the target')
-    parser.add_argument('-fit_time_limit',action='store',dest='FITTIME',default=3600,
+    parser.add_argument('-fit_time_limit',action='store',dest='FITTIME',default=30,
             type=int, help='Fit time limit (seconds) e.g. 3600 (1 hour). This is the maximum time for the fit method, not the job, make sure job time lim is greater than this.')
     parser.add_argument('--sym_data', action='store_true', dest='SYM_DATA', default=False)
     parser.add_argument('--save_population', action='store_true', dest='SAVE_POP', default=False)
     parser.add_argument('--ecotracker', action='store_true', dest='ECOTRACKER', default=False)
-    parser.add_argument('--scale_x', action='store_true', dest='SCALE_X', default=False) 
+    parser.add_argument('--scale_x', action='store_true', dest='SCALE_X', default=False)
     parser.add_argument('--scale_y', action='store_true', dest='SCALE_Y', default=False)
-    parser.add_argument('--skip_tuning',action='store_true', dest='SKIP_TUNE', 
+    parser.add_argument('--skip_tuning',action='store_true', dest='SKIP_TUNE',
                         default=False, help='Dont tune the estimator')
-    parser.add_argument('--tuned',action='store_true', dest='TUNED', default=False, 
+    parser.add_argument('--tuned',action='store_true', dest='TUNED', default=False,
             help='Run tuned version of estimators. Only applies when ml=None')
-    
+
     args = parser.parse_args()
     set_env_vars(args.n_jobs)
-    # import algorithm 
+    # import algorithm
     print('import from','methods.'+args.ALG+'.regressor')
     algorithm = importlib.__import__('methods.'+args.ALG+'.regressor',
                                      globals(),
@@ -481,16 +482,16 @@ if __name__ == '__main__':
         results_path=args.RDIR,
         random_state=args.RANDOM_STATE,
         est_name=args.ALG,
-        est=algorithm.est,  
+        est=algorithm.est,
         model=algorithm.model,
         algorithm=algorithm,
-        
+
         ecotracker=args.ECOTRACKER,
         test=args.TEST,
-        target_noise=args.Y_NOISE, 
-        feature_noise=args.X_NOISE, 
+        target_noise=args.Y_NOISE,
+        feature_noise=args.X_NOISE,
         use_tuned=args.TUNED,
         fit_time_limit=args.FITTIME,
-        
+
         **eval_kwargs
     )
