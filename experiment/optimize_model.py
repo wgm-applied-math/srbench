@@ -20,7 +20,7 @@ import numpy as np
 import json
 import re
 import os
-import eco2ai
+# import eco2ai
 
 import sympy as sp
 import inspect
