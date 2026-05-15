@@ -417,7 +417,7 @@ def evaluate_model(*,
 
     auto_complexity = make_auto_complexity(algorithm, feature_names)
 
-    cplx_result = auto_complexity(est, X_df)
+    cplx_result = auto_complexity(est, X_test)
 
     results['symbolic_model'] = cplx_result['symbolic_model']
     results['complexity_function'] = cplx_result['complexity_function']
