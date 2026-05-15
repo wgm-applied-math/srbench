@@ -16,6 +16,11 @@ import numpy as np
 import json
 import re
 import os
+
+# eco2ai doesn't seem to be working as of 2026-05-15.  This import
+# fails, so it has to be commented out for the test scripts to even
+# start.
+
 # import eco2ai
 
 import sympy as sp
