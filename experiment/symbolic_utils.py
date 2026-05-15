@@ -7,8 +7,8 @@ from sympy import Symbol, simplify, factor, Float, preorder_traversal, Integer
 from sympy.parsing.sympy_parser import parse_expr
 from read_file import read_file
 import re
-import ast 
-
+import ast
+import inspect
 
 ###############################################################################
 # fn definitions from the algorithms, written in sympy operators
@@ -59,12 +59,73 @@ def PSQRT(x):
 
 ###############################################################################
 
+def make_auto_complexity(algorithm, feature_names):
+    """
+    Return a function that computes the complexity of a model
+    from an estimator.
+
+    The returned function takes an estimator
+    and a ``DataFrame`` or similar, and returns a dictionary with
+    keys 'symbolic_model', 'sympy', 'sympy_str', 'complexity', and 'complexity_function'.
+
+    If ``algorithm`` implements ``model``,
+    'symbolic_model' maps to the raw output of ``model``,
+    'sympy' maps to the result of calling ``model`` and performing some rounding,
+    'sympy_str' maps to its string representation
+    'complexity' maps to the standard complexity of the sympy value,
+    and 'complexity_function' maps to 'sympy'.
+
+    If ``model`` is not implemented but ``complexity`` is, then 'symbolic_model' maps to 'not implemented',
+    'sympy' and 'sympy_str' map to ``None``,
+    'complexity' is mapped to the result of ``algorithm.complexity``,
+    and 'complexity_function' maps to 'user_defined'.
+
+    Otherwise, all keys map to ``None``.
+    """
+    # If there's no model() function:
+    if not hasattr(algorithm, "model") or algorithm.model is None:
+        # If there's a complexity() function, that will be called with est.
+        if hasattr(algorithm, "complexity"):
+            def algorithm_complexity(est, X):
+                return { "symbolic_model": None,
+                         "sympy_str": None,
+                         "sympy": None,
+                         "complexity": algorithm.complexity(est),
+                         "complexity_function": "user_defined" }
+            return algorithm_complexity
+        else:
+            def null_complexity(est, X):
+                return { "symbolic_model": None,
+                         "sympy_str": None,
+                         "sympy": None,
+                         "complexity": None,
+                         "complexity_function": None }
+            return null_complexity
+
+    def auto_complexity(est, X):
+        # For compatibility with model() functions that don't take an X:
+        if "X" in inspect.signature(algorithm.model).parameters.keys():
+            model_str = algorithm.model(est, X)
+        else:
+            model_str = algorithm.model(est)
+        local_dict = { k: Symbol(k) for k in feature_names }
+        model_sym = parse_expr(model_str, local_dict=local_dict)
+        model_sym = round_floats(model_sym)
+        return { "symbolic_model": model_str,
+                 "sympy_str": str(model_sym),
+                 "sympy": model_sym,
+                 "complexity": complexity(model_sym),
+                 "complexity_function": "sympy" }
+
+    return auto_complexity
+
+
 def complexity(expr):
     c=0
     for arg in preorder_traversal(expr):
         c += 1
     return c
-        
+
 def round_floats(ex1):
     ex2 = ex1
 
@@ -81,7 +142,7 @@ def round_floats(ex1):
 # corrects the MRGP model form so that it can be fed to sympy and simplified.
 ################################################################################
 def add_commas(model):
-    return ''.join([m + ',' if not m.endswith('(') else m 
+    return ''.join([m + ',' if not m.endswith('(') else m
                     for m in model.split()])[:-1]
 
 def decompose_mrgp_model(model_str):
@@ -93,8 +154,8 @@ def decompose_mrgp_model(model_str):
                             model_str)]
     print('betas:',betas)
     # get form
-    submodel = re.sub(pattern=r'[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?\*', 
-               repl=r'', 
+    submodel = re.sub(pattern=r'[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?\*',
+               repl=r'',
                string=model_str)
     return betas, submodel #new_model
 
@@ -102,7 +163,7 @@ def print_model(node):
     if hasattr(node, 'func'):
         model_str = node.func.id + '('
     elif hasattr(node, 'id'):
-        # model_str = node.id 
+        # model_str = node.id
         return node.id
     else:
         pdb.set_trace()
@@ -133,7 +194,7 @@ def add_betas(node, betas):
             submodel = add_betas(arg, betas)
             if submodel != '':
                 model_str += '+' if i != 0 else ''
-                model_str += submodel 
+                model_str += submodel
                 i += 1
     # print('add_betas::',model_str)
     return model_str
@@ -141,8 +202,8 @@ def add_betas(node, betas):
 
 def clean_pred_model(model_str, dataset, est_name):
     mrgp = 'MRGP' in est_name
-    
-    model_str = model_str.strip()    
+
+    model_str = model_str.strip()
 
     if mrgp:
         model_str = model_str.replace('+','add')
@@ -151,7 +212,7 @@ def clean_pred_model(model_str, dataset, est_name):
 
 
     X, labels, features = read_file(dataset)
-   
+
     local_dict = {k:Symbol(k) for k in features}
     new_model_str = model_str
     # rename features
@@ -168,9 +229,9 @@ def clean_pred_model(model_str, dataset, est_name):
     # operators
     new_model_str = new_model_str.replace('^','**')
     #GP-GOMEA
-    new_model_str = new_model_str.replace('p/','/') 
-    new_model_str = new_model_str.replace('plog','PLOG') 
-    new_model_str = new_model_str.replace('aq','/') 
+    new_model_str = new_model_str.replace('p/','/')
+    new_model_str = new_model_str.replace('plog','PLOG')
+    new_model_str = new_model_str.replace('aq','/')
     # MRGP
     new_model_str = new_model_str.replace('mylog','PLOG')
     # ITEA
@@ -179,11 +240,11 @@ def clean_pred_model(model_str, dataset, est_name):
     #        repl=r'sqrt(abs(\1))',
     #        string=new_model_str
     #       )
-    new_model_str = new_model_str.replace('np.','') 
+    new_model_str = new_model_str.replace('np.','')
     # ellyn & FEAT
     new_model_str = new_model_str.replace('|','')
-    new_model_str = new_model_str.replace('log','PLOG') 
-    new_model_str = new_model_str.replace('sqrt','PSQRT') 
+    new_model_str = new_model_str.replace('log','PLOG')
+    new_model_str = new_model_str.replace('sqrt','PSQRT')
 
     # AIFeynman
     new_model_str = new_model_str.replace('pi','3.1415926535')
@@ -245,7 +306,7 @@ def get_sym_model(dataset, return_str=True):
     # pdb.set_trace()
     # handle feynman problem constants
 #     print('model:',model_str)
-    model_sym = parse_expr(model_str, 
+    model_sym = parse_expr(model_str,
 			   local_dict = {k:Symbol(k) for k in features})
     model_sym = round_floats(model_sym)
 #     print('sym model:',model_sym)
@@ -253,11 +314,11 @@ def get_sym_model(dataset, return_str=True):
 
 def get_sympy_model(model_str, dataset):
     model_str = model_str.replace('pi','3.1415926535')
-    
+
     df = pd.read_csv(dataset,sep='\t')
     features = [c for c in df.columns if c != 'target']
 
-    model_sym = parse_expr(model_str, 
+    model_sym = parse_expr(model_str,
 			   local_dict = {k:Symbol(k) for k in features})
     model_sym = round_floats(model_sym)
     return model_sym

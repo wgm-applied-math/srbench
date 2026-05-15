@@ -39,15 +39,15 @@ def test_tuned_models(ml):
     eval_kwargs['skip_tuning'] = True
     eval_kwargs['sym_data'] = True
 
-    evaluate_model(dataset, 
-                   results_path, 
-                   random_state, 
+    evaluate_model(dataset,
+                   results_path,
+                   random_state,
                    ml,
-                   algorithm.est, 
-                   algorithm.hyper_params, 
+                   algorithm.est,
+                   algorithm.hyper_params,
                    algorithm.complexity,
                    algorithm.model,
-                   target_noise=0, 
+                   target_noise=0,
                    feature_noise=0,
                    test=True, # testing
                    **eval_kwargs

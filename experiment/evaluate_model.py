@@ -26,7 +26,7 @@ import os
 import sympy as sp
 import inspect
 from utils import jsonify
-from symbolic_utils import complexity, get_sympy_model
+from symbolic_utils import make_auto_complexity
 from symbolic_utils import get_sym_model
 
 from metrics.evaluation import simplicity
@@ -51,7 +51,6 @@ def evaluate_model(*,
     random_state,
     est_name,
     est,
-    model,
     algorithm,
 
     # Extra configurations
@@ -267,20 +266,6 @@ def evaluate_model(*,
     # get the final symbolic model as a string
     print('fitted est:',est)
 
-    if model is None:
-        results['symbolic_model'] = "not implemented"
-    elif 'X' in inspect.signature(model).parameters.keys():
-        if not isinstance(X_train_scaled, pd.DataFrame):
-            X_df = pd.DataFrame(X_train_scaled,
-                                          columns=feature_names)
-        else:
-            X_df = X_train_scaled
-        results['symbolic_model'] = model(est, X_df)
-    else:
-        results['symbolic_model'] = model(est)
-
-    print('symbolic model:',results['symbolic_model'])
-
     ##################################################
     # scores
     ##################################################
@@ -299,46 +284,27 @@ def evaluate_model(*,
                              ]:
             results[score + '_' + fold] = scorer(target, y_pred)
 
+    if not isinstance(X_train_scaled, pd.DataFrame):
+        X_df = pd.DataFrame(X_train_scaled, columns=feature_names)
+    else:
+        X_df = X_train_scaled
+
+    auto_complexity = make_auto_complexity(algorithm, feature_names)
+
+    cplx_result = auto_complexity(est, X_df)
+
+    results['symbolic_model'] = cplx_result['symbolic_model']
+    results['complexity_function'] = cplx_result['complexity_function']
+    results['model_size'] = cplx_result['complexity']
+
+    print('symbolic model:',results['symbolic_model'])
+
     # simplicity
     if results['symbolic_model'] != "not implemented":
         results['simplicity'] = simplicity(results['symbolic_model'], feature_names)
     else:
         results['simplicity'] = np.nan
 
-    def sympy_complexity(est):
-        sympy_str = None
-        if model is None:
-            sympy_str = "not implemented"
-        elif 'X' in inspect.signature(model).parameters.keys():
-            if not isinstance(X_train_scaled, pd.DataFrame):
-                X_df = pd.DataFrame(X_train_scaled,
-                                            columns=feature_names)
-            else:
-                X_df = X_train_scaled
-            sympy_str = model(est, X_df)
-        else:
-            sympy_str = model(est)
-
-        c = -1
-        try:
-            c = complexity(get_sympy_model(sympy_str, dataset))
-        except:
-            print(f"{est_name} does not have a complexity() method, and does not"
-                " generate sympy-compatible expressions. setting to -1")
-            return -1
-
-        return int(c)
-
-    # Forcing all algorithms to use same notion of complexity
-    cplx = sympy_complexity(est)
-    results['complexity_function'] = 'sympy'
-
-    # if sympy fails we will use their methods. This should be deprecated eventually
-    if cplx == -1 and ('complexity' in dir(algorithm) and algorithm.complexity is not None):
-        cplx = algorithm.complexity(est)
-        results['complexity_function'] = 'user_defined'
-
-    results['model_size'] = cplx
     results['target_noise']  = target_noise
     results['feature_noise'] = feature_noise
 
@@ -487,7 +453,6 @@ if __name__ == '__main__':
         random_state=args.RANDOM_STATE,
         est_name=args.ALG,
         est=algorithm.est,
-        model=algorithm.model,
         algorithm=algorithm,
 
         ecotracker=args.ECOTRACKER,
