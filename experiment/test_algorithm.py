@@ -12,10 +12,7 @@ print('appended',root_dir,'to sys.path')
 from evaluate_model import evaluate_model
 import importlib
 # symbolic model stuff
-from sympy.parsing.sympy_parser import parse_expr
-from symbolic_utils import (complexity, round_floats,
-                            sub, div, square, cube, quart,
-                            PLOG, PLOG10, PSQRT)
+from symbolic_utils import make_auto_complexity
 from read_file import read_file
 from sympy import Symbol
 
@@ -105,20 +102,13 @@ def test_sympy(ml):
     else:
         raise FileNotFoundError(json_file+' not found')
 
-    est_name = r['algorithm']
-
     raw_model = r['symbolic_model']
     print('raw_model:',raw_model)
-    X, labels, features = read_file(dataset)
-    local_dict = {k:Symbol(k) for k in features}
+    X, labels, feature_names = read_file(dataset)
 
-    model_sym = parse_expr(raw_model, local_dict = local_dict)
-    model_sym = round_floats(model_sym)
-    print('sym model:',model_sym)
+    auto_complexity = make_auto_complexity(algorithm, feature_names)
+    cplx_result = auto_complexity(algorithm.est, X)
 
-    # WGM: Is this actually required?
-    #assert 'complexity' in dir(algorithm), \
-    #    f"{ml} does not implement complexity"
-
-    model_complexity = complexity(model_sym)
-    print('model complexity:',model_complexity)
+    print('symbolic model:', cplx_result['symbolic_model'])
+    print('sym model:', cplx_result['sympy_str'])
+    print('model complexity:', cplx_result['complexity'])
