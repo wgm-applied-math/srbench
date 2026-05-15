@@ -51,7 +51,9 @@ def test_population(ml):
     ##################################################
     # fit with max_time
     ##################################################
-    MAXTIME = 3600 # in seconds
+    # MAXTIME = 3600 # in seconds
+    MAXTIME = 60 # in seconds
+
     if hasattr(algorithm.est, 'max_time'):
         algorithm.est.max_time = MAXTIME
         print('max time:',MAXTIME)
