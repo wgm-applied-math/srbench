@@ -87,8 +87,7 @@ def evaluate_model(*,
     ##################################################
     features, labels, feature_names = read_file(
         dataset,
-        use_dataframe=use_dataframe,
-        sep="\t"
+        use_dataframe=use_dataframe
     )
     print('feature_names:',feature_names)
 
