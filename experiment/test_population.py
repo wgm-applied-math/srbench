@@ -5,6 +5,9 @@ import numpy as np
 from os.path import dirname as d
 from os.path import abspath
 from sklearn.model_selection import train_test_split
+import sympy as sp
+from symbolic_utils import complexity
+from metrics.evaluation import get_symbolic_model
 
 root_dir = d(abspath(__file__))
 sys.path.append(root_dir)
@@ -35,6 +38,8 @@ def test_population(ml):
         use_dataframe=True
     )
     print('feature_names:',feature_names)
+    local_dict = { column: sp.symbols(column)
+        for column in feature_names }
 
     # generate train/test split
     X_train, X_test, y_train, y_test = train_test_split(features, labels,
@@ -73,8 +78,17 @@ def test_population(ml):
 
     best_model = algorithm.get_best_solution(algorithm.est)
     print('Best model')
-    print(algorithm.model(best_model, X_train))
-    print(algorithm.complexity(best_model))
+    m = algorithm.model(best_model, X_train)
+    print(m)
+    
+    # Use their complexity methods. This should be deprecated eventually
+    if ('complexity' in dir(algorithm) and algorithm.complexity is not None):
+        cplx = algorithm.complexity(est)
+    else:
+        m_sym = get_symbolic_model(m, local_dict)
+        print("Extracted symbolic form:", m_sym)
+        cplx = complexity(m_sym)
+    print("Complexity:", cplx)
     print(algorithm.est.predict(X_train.values))
 
     ##################################################
@@ -92,6 +106,14 @@ def test_population(ml):
     
     for i, p in enumerate(population):
         print(f"Individual {i}")
-        print(algorithm.model(p, X_train))
-        print(algorithm.complexity(p))
+        m = algorithm.model(p, X_train)
+        print(m)
+        # Use their complexity methods. This should be deprecated eventually
+        if ('complexity' in dir(algorithm) and algorithm.complexity is not None):
+            cplx = algorithm.complexity(est)
+        else:
+            m_sym = get_symbolic_model(m, local_dict)
+            print("Extracted symbolic form:", m_sym)
+            cplx = complexity(m_sym)
+        print("Complexity:", cplx)
         print(p.predict(X_train.values))
