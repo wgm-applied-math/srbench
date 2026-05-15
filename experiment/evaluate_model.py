@@ -55,7 +55,7 @@ def evaluate_model(*,
     target_noise=0.0,
     feature_noise=0.0,
     use_tuned=False,
-    fit_time_limit=30,
+    fit_time_limit=60,
 
     # valid options for eval_kwargs (may be specific for some algorithms, so they can set
     # and it will be overriden here)
@@ -439,7 +439,7 @@ if __name__ == '__main__':
     parser.add_argument('-feature_noise',action='store',dest='X_NOISE',
                         default=0.0, type=float, help='Gaussian noise to add'
                         'to the target')
-    parser.add_argument('-fit_time_limit',action='store',dest='FITTIME',default=30,
+    parser.add_argument('-fit_time_limit',action='store',dest='FITTIME',default=60,
             type=int, help='Fit time limit (seconds) e.g. 3600 (1 hour). This is the maximum time for the fit method, not the job, make sure job time lim is greater than this.')
     parser.add_argument('--sym_data', action='store_true', dest='SYM_DATA', default=False)
     parser.add_argument('--save_population', action='store_true', dest='SAVE_POP', default=False)
