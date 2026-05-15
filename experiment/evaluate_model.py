@@ -26,8 +26,7 @@ import os
 import sympy as sp
 import inspect
 from utils import jsonify
-from symbolic_utils import make_auto_complexity
-from symbolic_utils import get_sym_model
+from symbolic_utils import make_auto_complexity, get_sym_model
 
 from metrics.evaluation import simplicity
 
