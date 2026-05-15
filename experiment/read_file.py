@@ -7,6 +7,12 @@ def read_file(filename, label='target', use_dataframe=True, sep=None):
         compression = 'gzip'
     else:
         compression = None
+            
+    if sep is None:
+        if filename.find(".tsv") >= 0:
+            sep = "\t"
+        if filename.find(".csv") >= 0:
+            sep = ","
     
     print('compression:',compression)
     print('filename:',filename)
