@@ -1,1 +1,0 @@
-jessaminescikitlearn @ https://github.com/wgm-applied-math/jessaminescikitlearn/releases/download/v0.3.0/jessaminescikitlearn-0.3.0-py3-none-any.whl
