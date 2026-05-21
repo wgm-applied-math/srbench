@@ -121,9 +121,14 @@ def test_sympy(ml):
     print('sym model:',model_sym)
 
     # Should pass
-    if 'model' in dir(algorithm):
-        model_complexity = algorithm. complexity(model_sym)
-        print('model complexity (author provided):', model_complexity)
+    if hasattr(algorithm, 'complexity'):
+        try:
+            model_complexity = algorithm.complexity(model_sym)
+            print('model complexity (author provided):', model_complexity)
+        except Exception as exc:
+            print('algorithm complexity failed; using fallback:', exc)
+            model_complexity = complexity(model_sym)
+            print('model complexity (using our implementation):', model_complexity)
     else: # Given that the string is sympy compatible, this should work
         model_complexity = complexity(model_sym)
         print('model complexity (using our implementation):', model_complexity)

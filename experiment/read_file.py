@@ -2,6 +2,8 @@ import pandas as pd
 import numpy as np
 
 def read_file(filename, label='target', use_dataframe=True, sep=None):
+    if filename is None:
+        raise ValueError('filename is required')
     
     if filename.endswith('gz'):
         compression = 'gzip'
@@ -10,6 +12,14 @@ def read_file(filename, label='target', use_dataframe=True, sep=None):
     
     print('compression:',compression)
     print('filename:',filename)
+
+    if sep is None:
+        if filename.endswith(('.tsv', '.tsv.gz')):
+            sep = '\t'
+        elif filename.endswith(('.csv', '.csv.gz')):
+            sep = ','
+        else:
+            sep = ','
 
     input_data = pd.read_csv(filename, sep=sep, compression=compression)
      
