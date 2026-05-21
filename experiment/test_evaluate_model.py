@@ -23,9 +23,7 @@ def test_evaluate_model(ml):
                    results_path, 
                    random_state, 
                    ml,
-                   algorithm.est, 
-                   algorithm.hyper_params, 
-                   algorithm.complexity,
+                   algorithm.est,
                    algorithm.model,
                    test=True # testing
                   )
