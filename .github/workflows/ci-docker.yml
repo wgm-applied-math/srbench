@@ -137,24 +137,13 @@ jobs:
       matrix:
         alg: ${{ fromJson(needs.list-algs.outputs.matrix) }}
       fail-fast: false
-    if: needs.check-changes.outputs.changes-detected == 'true'
+    if: always()
     steps:
       - uses: actions/checkout@v4
       - name: Check if algorithm has changed
         id: check_algorithm
         run: |
-          if [[ "${{ needs.check-changes.outputs.rebuild-all }}" == "true" ]]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          CHANGED_ALGS=$(echo "${{ needs.check-changes.outputs.changed-algs }}" | tr ',' '\n' | sed '/^$/d')
-          if printf '%s\n' "$CHANGED_ALGS" | grep -qx "${{ matrix.alg }}"; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "should_run=false" >> "$GITHUB_OUTPUT"
-            echo "status=skipped" >> "$GITHUB_OUTPUT"
-          fi
+          echo "should_run=true" >> "$GITHUB_OUTPUT"
       - name: Print should_run status
         run: |
           echo "Should run: ${{ steps.check_algorithm.outputs.should_run }}"
