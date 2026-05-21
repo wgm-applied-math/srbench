@@ -247,6 +247,19 @@ def get_sym_model(dataset, return_str=True):
 #     print('sym model:',model_sym)
     return model_sym
 
+def get_sympy_model(model_str, dataset):
+    model_str = model_str.replace('pi', '3.1415926535')
+
+    df = pd.read_csv(dataset, sep='\t')
+    features = [c for c in df.columns if c != 'target']
+
+    model_sym = parse_expr(
+        model_str,
+        local_dict={k: Symbol(k) for k in features}
+    )
+    model_sym = round_floats(model_sym)
+    return model_sym
+
 def rewrite_AIFeynman_model_size(model_str):
     """AIFeynman complexity was incorrect prior to version , update it here"""
     return complexity(parse_expr(model_str))

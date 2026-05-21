@@ -26,5 +26,6 @@ def test_evaluate_model(ml):
         est_name=ml,
         est=algorithm.est,
         model=algorithm.model,
+        algorithm=algorithm,
         test=True # testing
     )

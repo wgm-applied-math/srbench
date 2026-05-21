@@ -77,15 +77,17 @@ def test_evaluate(ml):
     else:
         eval_kwargs = {}
     print(eval_kwargs) 
-    json_file = evaluate_model(dataset, 
-                   results_path, 
-                   random_state, 
-                   ml,
-                   algorithm.est, 
-                   algorithm.model,
-                   test=True, # testing
-                   **eval_kwargs
-                  )
+    json_file = evaluate_model(
+        dataset=dataset, # input file
+        results_path=results_path, # results directory
+        random_state=random_state, # random state seed
+        est_name=ml, # estimator name
+        est=algorithm.est, # estimator class
+        algorithm=algorithm,
+        model=algorithm.model, # method to extract the model from the estimator
+        test=True, # testing
+        **eval_kwargs
+    )
     print(json_file)
     print("hello")
 
@@ -95,10 +97,6 @@ def test_sympy(ml):
     """Sympy compatibility of model string"""
 
     algorithm = get_algorithm(ml)
-
-    # Returning a sympy compatible string is a must
-    assert 'model' in dir(algorithm), \
-        f"{ml} does not implement model"
 
     dataset_name = dataset.split('/')[-1][:-7]
     json_file = (results_path + '/' + dataset_name + '_' + ml + '_' 

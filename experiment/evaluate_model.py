@@ -2,7 +2,6 @@ import sys
 import itertools
 import pandas as pd
 from sklearn.base import clone
-from sklearn.experimental import enable_halving_search_cv # noqa
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score  
 from sklearn.model_selection import train_test_split
@@ -18,7 +17,7 @@ import json
 import os
 import inspect
 from utils import jsonify
-from symbolic_utils import get_sym_model
+from symbolic_utils import complexity, get_sym_model, get_sympy_model
 
 from metrics.evaluation import simplicity
 
@@ -36,25 +35,25 @@ def set_env_vars(n_jobs):
     os.environ['MKL_NUM_THREADS'] = n_jobs
 
 def evaluate_model(
-    dataset, 
+    *,
+    dataset,
     results_path,
     random_state,
     est_name,
     est,
     model,
+    algorithm,
     test=False,
-    sym_data=False,
-    target_noise=0.0, 
-    feature_noise=0.0, 
-    ##########
-    # valid options for eval_kwargs
-    ##########
+    target_noise=0.0,
+    feature_noise=0.0,
+    fit_time_limit=3600,
+    sym_data=False,    save_pop=False,
     test_params={},
     max_train_samples=0,
     scale_x=True,
     scale_y=True,
     pre_train=None,
-    use_dataframe=True
+    use_dataframe=True,
 ):
 
     print(40*'=','Evaluating '+est_name+' on ',dataset,40*'=',sep='\n')
@@ -63,14 +62,16 @@ def evaluate_model(
     if hasattr(est, 'random_state'):
         est.random_state = random_state
 
-    ##################################################
-    # setup data
-    ##################################################
+    if (
+        "e2et" in est_name
+        or "tpsr" in est_name
+        or "nesymres" in est_name
+        or "dso" in est_name
+        or "bingo" in est_name
+    ):
+        use_dataframe = False
 
-    ##################################################
-    # setup data
-    ##################################################
-    features, labels, feature_names =  read_file(
+    features, labels, feature_names = read_file(
         dataset, 
         use_dataframe=use_dataframe
     )
@@ -83,22 +84,16 @@ def evaluate_model(
                                                     test_size=0.25,
                                                     random_state=random_state)
 
-    # time limits
-    MAXTIME = 3600
-    if len(y_train) > 1000:
-        MAXTIME = 36000
-
-    print('max time:',MAXTIME)
-
     # if dataset is large, subsample the training set 
     if max_train_samples > 0 and len(y_train) > max_train_samples:
         print('subsampling training data from',len(X_train),
               'to',max_train_samples)
         sample_idx = np.random.choice(np.arange(len(X_train)),
-                                      size=max_train_samples)
+                                      size=max_train_samples,
+                                      replace=False)
         y_train = y_train[sample_idx]
         if isinstance(X_train, pd.DataFrame):
-            X_train = X_train.loc[sample_idx]
+            X_train = X_train.iloc[sample_idx]
         else:
             X_train = X_train[sample_idx]
 
@@ -155,22 +150,59 @@ def evaluate_model(
     ################################################## 
     # Fit models
     ################################################## 
+    if test and fit_time_limit > 60:
+        fit_time_limit = 60
+
+    MAXTIME = fit_time_limit
+    if len(y_train) > 1000 and not test and MAXTIME < 36000:
+        MAXTIME = 36000
+
+    print('max time:', MAXTIME)
+
     if not use_dataframe: 
         assert isinstance(X_train_scaled, np.ndarray)
         assert isinstance(X_test_scaled, np.ndarray)
     print('X_train:',type(X_train_scaled),X_train_scaled.shape)
     print('y_train:',y_train_scaled.shape)
     print('training',est)
-    t0t = time.time()
+
+    if hasattr(est, 'max_time'):
+        est.max_time = MAXTIME
+        print('max time set:', MAXTIME)
+    elif hasattr(est, 'timeout_in_seconds'):
+        est.timeout_in_seconds = MAXTIME
+        print('max time set:', MAXTIME)
+    elif hasattr(est, 'timeout'):
+        est.timeout = MAXTIME
+        print('max time set:', MAXTIME)
+    elif hasattr(est, 'stop_time'):
+        est.stop_time = MAXTIME
+        print('max time set:', MAXTIME)
+    elif hasattr(est, 'time_limit'):
+        est.time_limit = MAXTIME
+        print('max time set:', MAXTIME)
+    else:
+        print('max time not set. Program will be killed if execution takes too long')
+
     signal.signal(signal.SIGALRM, alarm_handler)
-    signal.alarm(MAXTIME) # maximum time, defined above
+    alarm_grace = 60 if test else 600
+    signal.alarm(MAXTIME + alarm_grace)
+
+    t0t = time.time()
     try:
         est.fit(X_train_scaled, y_train_scaled)
     except TimeOutException:
-        print('WARNING: fitting timed out')
+        print('=' * 80)
+        print('WARNING: fitting timed out. If the program does not handle SIGALRM, it will be killed')
+        print('=' * 80)
+    finally:
+        signal.alarm(0)
 
     time_time = time.time() - t0t
     print('Training time measure:', time_time)
+
+    if 'geneticengine' in est_name:
+        est._is_fitted = True
     
     ##################################################
     # store results
@@ -189,7 +221,9 @@ def evaluate_model(
     # get the final symbolic model as a string
     print('fitted est:',est)
 
-    if 'X' in inspect.signature(model).parameters.keys():
+    if model is None:
+        results['symbolic_model'] = 'not implemented'
+    elif 'X' in inspect.signature(model).parameters.keys():
         if not isinstance(X_train_scaled, pd.DataFrame):
             X_df = pd.DataFrame(X_train_scaled, 
                                           columns=feature_names)
@@ -218,14 +252,50 @@ def evaluate_model(
                              ]:
             results[score + '_' + fold] = scorer(target, y_pred) 
     
-    # simplicity
-    results['simplicity'] = simplicity(results['symbolic_model'], feature_names)
+    if results['symbolic_model'] != 'not implemented':
+        results['simplicity'] = simplicity(results['symbolic_model'], feature_names)
+    else:
+        results['simplicity'] = np.nan
+
+    def sympy_complexity(estimator):
+        sympy_str = None
+        if model is None:
+            return -1
+        if 'X' in inspect.signature(model).parameters.keys():
+            if not isinstance(X_train_scaled, pd.DataFrame):
+                X_df = pd.DataFrame(X_train_scaled, 
+                                            columns=feature_names)
+            else:
+                X_df = X_train_scaled
+            sympy_str = model(estimator, X_df)
+        else:
+            sympy_str = model(estimator)
+
+        try:
+            return int(complexity(get_sympy_model(sympy_str, dataset)))
+        except Exception:
+            print(
+                f"{est_name} does not have a complexity() method, and does not "
+                "generate sympy-compatible expressions. setting to -1"
+            )
+            return -1
+
+    cplx = sympy_complexity(est)
+    results['complexity_function'] = 'sympy'
+
+    if cplx == -1 and ('complexity' in dir(algorithm) and algorithm.complexity is not None):
+        cplx = algorithm.complexity(est)
+        results['complexity_function'] = 'user_defined'
+
+    results['model_size'] = cplx
+    results['target_noise'] = target_noise
+    results['feature_noise'] = feature_noise
 
     ##################################################
     # write to file
     ##################################################
     print('results:')
-    print(json.dumps(results,indent=4))
+    print(json.dumps(results, indent=4))
     print('---')
 
     if not os.path.exists(results_path):
@@ -282,6 +352,10 @@ if __name__ == '__main__':
                        help='Use symbolic dataset settings')
     parser.add_argument('-skip_tuning',action='store_true', dest='SKIP_TUNE', 
                         default=False, help='Dont tune the estimator')
+    parser.add_argument('-fit_time_limit',action='store',dest='FITTIME',default=3600,
+        type=int, help='Fit time limit (seconds) e.g. 3600 (1 hour). This is '
+        'the maximum time for the fit method, not the job, make sure job time '
+        'limit is greater than this.')
 
     args = parser.parse_args()
     set_env_vars(args.n_jobs)
@@ -303,12 +377,15 @@ if __name__ == '__main__':
     if args.max_samples != 0:
         eval_kwargs['max_train_samples'] = args.max_samples
 
-    evaluate_model(args.INPUT_FILE,
-                   args.RDIR,
-                   args.RANDOM_STATE,
-                   args.ALG,
-                   algorithm.est,  
-                   algorithm.model, 
-                   test = args.TEST, 
-                   **eval_kwargs
-                  )
+    evaluate_model(
+        dataset=args.INPUT_FILE,
+        results_path=args.RDIR,
+        random_state=args.RANDOM_STATE,
+        est_name=args.ALG,
+        est=algorithm.est,
+        model=algorithm.model,
+        algorithm=algorithm,
+        test=args.TEST,
+        fit_time_limit=args.FITTIME,
+        **eval_kwargs
+    )
