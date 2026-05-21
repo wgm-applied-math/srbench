@@ -5,7 +5,7 @@ import json
 import types
 from os.path import dirname as d
 from os.path import abspath
-root_dir = d(d(abspath(__file__)))
+root_dir = d(abspath(__file__))
 sys.path.append(root_dir)
 print('appended',root_dir,'to sys.path')
 
@@ -93,9 +93,17 @@ def test_evaluate(ml):
 @pytest.mark.order(after="test_evaluate")
 def test_sympy(ml):
     """Sympy compatibility of model string"""
+
+    algorithm = get_algorithm(ml)
+
+    # Returning a sympy compatible string is a must
+    assert 'model' in dir(algorithm), \
+        f"{ml} does not implement model"
+
     dataset_name = dataset.split('/')[-1][:-7]
     json_file = (results_path + '/' + dataset_name + '_' + ml + '_' 
                  + str(random_state) + '.json')
+    
     if os.path.exists(json_file):
         r = json.load(open(json_file, 'r'))
     else:
@@ -112,5 +120,10 @@ def test_sympy(ml):
     model_sym = round_floats(model_sym)
     print('sym model:',model_sym)
 
-    model_complexity = complexity(model_sym)
-    print('model complexity:',model_complexity)
+    # Should pass
+    if 'model' in dir(algorithm):
+        model_complexity = algorithm. complexity(model_sym)
+        print('model complexity (author provided):', model_complexity)
+    else: # Given that the string is sympy compatible, this should work
+        model_complexity = complexity(model_sym)
+        print('model complexity (using our implementation):', model_complexity)

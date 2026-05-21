@@ -2,7 +2,7 @@ import sys
 import os
 import pyTIR as tir
 from itertools import product
-os.environ["LD_LIBRARY_PATH"] = os.environ["CONDA_PREFIX"] + "/lib"
+#os.environ["LD_LIBRARY_PATH"] = os.environ["CONDA_PREFIX"] + "/lib"
 
 hyper_params = [
     {
@@ -34,3 +34,12 @@ def model(e, X):
     for i,f in reversed(list(enumerate(X.columns))):
         new_model = new_model.replace(f'x{i}',f)
     return new_model
+
+def get_population(est):
+    pop = []
+    for i in range(min(100, len(est.front))-1,-1,-1):
+        pop.append(est.create_model_from(i))
+    return pop 
+
+def get_best_solution(est):
+    return est

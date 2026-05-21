@@ -1,16 +1,14 @@
-name: ellyn-env
+name: srbench-afp
 channels:
     - conda-forge
 dependencies:
-    - python=3.*
+    - python=3.* #9.20
+    - boost
     - eigen=3.3.7
-    - boost=1.74.0
+    - boost-cpp
+    - libboost-devel
     - scikit-learn
     - pandas=1.1.*
     - pip
     - pip:
         - DistanceClassifier
-    # - setuptools=45.*
-    # - wheel=0.35.*
-    # - pip=20.*
-    # - pip:

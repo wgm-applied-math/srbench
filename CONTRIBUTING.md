@@ -29,12 +29,13 @@ You can leverage this code base and previous experimental results to do so.
 - If your method uses a random seed, it should have a `random_state` attribute that can be set.
 - Methods must have their own folders in the `algorithms` directory (e.g., `algorithms/feat`). 
 This folder should contain:
-  1. `metadata.yml` (**required**): A file describing your submission, following the descriptions in [submission/feat-example/metadata.yml][metadata]. 
-  2. `regressor.py` (**required**): a Python file that defines your method, named appropriately. See [submission/feat-example/regressor.py][regressor] for complete documentation. 
+  1. `metadata.yml` (**required**): A file describing your submission, following the descriptions in [algorithms/feat/metadata.yml][metadata]. 
+  2. `regressor.py` (**required**): a Python file that defines your method, named appropriately. See [algorithms/feat/regressor.py][regressor] for complete documentation. 
       It should contain:
       -   `est`: a sklearn-compatible `Regressor` object. 
       -   `model(est, X=None)`: a function that returns a [**sympy-compatible**](https://www.sympy.org) string specifying the final model. It can optionally take the training data as an input argument. See [guidance below](###-returning-a-sympy-compatible-model-string). 
       -   `eval_kwargs` (optional): a dictionary that can specify method-specific arguments to `evaluate_model.py`.
+      -   We expect your algorithm to have a `max_time` parameter that lets us control the maximum execution time in seconds. When running the experiments in a cluster, we will give extra time to compensate for the overhead of initializing everything, and the maximum time considered is just the fit process. A signal `signal.SIGALRM` will be sent to your process if `fit(X, y)` exceeds the maximum time, and you can implement strategies to handle this signal. One idea is to store a random initial solution as the best and update it during the execution to ensure the `evaluate_model.py` script will find an equation to work on.
   3. `LICENSE` *(optional)* A license file
   4. `environment.yml` *(optional)*: a [conda environment file](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-from-an-environment-yml-file) that specifies dependencies for your submission. 
   It will be used to update the baseline environment (`environment.yml` in the root directory). 
@@ -43,7 +44,8 @@ This folder should contain:
   5. `requirements.txt` *(optional)*: a pypi requirements file. The script will run `pip install -r requirements.txt` if this file is found, before proceeding.
   5. `install.sh` *(optional)*: a bash script that installs your method. 
   **Note: scripts should not require sudo permissions. The library and include paths should be directed to conda environment; the environmental variable `$CONDA_PREFIX` specifies the path to the environment.
-  6. **do not include your source code**. use `install.sh` to pull it from a stable source repository. 
+  6. `Dockerfile` *(optional)*: we will try to dockerize all algorithms. You can optionally have a `Dockerfile` inside your `algorithms/your-submission` folder to describe specific images for running your algorithm. If no file is provided, it will use `alg-Dockerfile` for your container. You can specify the image as you like, as long as you have as minimal dependences the python packages described in `base_environment.yml`, as they are used to run the experiment scripts. See [this example](algorithms/tir/Dockerfile) in case you want to use a custom image. *Notice that there is a workflow to build the docker images and push them to dockerhub*.
+  7. **do not include your source code**. use `install.sh` to pull it from a stable source repository. 
 
 ### model compatibility with sympy
 
@@ -55,7 +57,7 @@ If your method names variables some other way, e.g. `[x_0 ... x_m]`, you can
 specify a mapping in the `model` function such as:
 
 ```python
-def model(est, X):
+def model(est, X=None):
     mapping = {'x_'+str(i):k for i,k in enumerate(X.columns)}
     new_model = est.model_
     for k,v in reversed(mapping.items()):
