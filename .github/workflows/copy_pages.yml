@@ -26,10 +26,10 @@ jobs:
           - docs/JudgingCriteria.md
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - 
         name: check cache 
-        uses: actions/cache@v2
+        uses: actions/cache@v4
         with:
           path: ${{ matrix.file }}
           key: ${{ hashFiles(format('{0}', matrix.file )) }}
