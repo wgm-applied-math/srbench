@@ -4,6 +4,9 @@ on:
   push:
     tags: ['v*']
 
+permissions:
+  contents: read
+
 env:
   ORG: ${{ secrets.DOCKER_HUB_USERNAME }}
 
@@ -22,7 +25,9 @@ jobs:
           context: .
           file: baseDockerfile
           push: true
-          tags: ${{ env.ORG }}/srbench:base
+          tags: |
+            ${{ env.ORG }}/base:latest
+            ${{ env.ORG }}/base:${{ github.ref_name }}
           cache-from: type=gha,scope=base
           cache-to: type=gha,scope=base,mode=max
 
@@ -80,8 +85,10 @@ jobs:
           file: ${{ steps.dockerfile.outputs.path }}
           build-args: |
             ALGORITHM=${{ matrix.algorithm }}
-            BASE_IMAGE=${{ env.ORG }}/srbench:base
+            BASE_IMAGE=${{ env.ORG }}/base:${{ github.ref_name }}
           push: true
-          tags: ${{ env.ORG }}/srbench-${{ matrix.algorithm }}:latest
+          tags: |
+            ${{ env.ORG }}/${{ matrix.algorithm }}:latest
+            ${{ env.ORG }}/${{ matrix.algorithm }}:${{ github.ref_name }}
           cache-from: type=gha,scope=${{ matrix.algorithm }}
           cache-to: type=gha,scope=${{ matrix.algorithm }},mode=max
