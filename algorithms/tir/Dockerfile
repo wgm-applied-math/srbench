@@ -1,4 +1,5 @@
-FROM srbench/base AS build
+ARG BASE_IMAGE=srbench/base
+FROM ${BASE_IMAGE} AS build
 ################################################################################
 
 USER root
